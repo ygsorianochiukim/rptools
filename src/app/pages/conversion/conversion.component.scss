@@ -1,0 +1,8 @@
+button{
+    width: 20%;
+    height: 100px;
+    transition: .1s;
+    &:hover{
+        scale:1.04;
+    }
+}

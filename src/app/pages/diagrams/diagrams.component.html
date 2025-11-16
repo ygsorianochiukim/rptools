@@ -1,0 +1,14 @@
+<div class="flexrow h-full !items-start">
+    <div class="toolbar flexcol">
+        <button (click)="addNode()" class="bg-primary"><lucide-icon [img]="WorkflowIcon"></lucide-icon></button>
+        <button (click)="enableConnect()" class="bg-primary"><lucide-icon [img]="SplineIcon"></lucide-icon></button>
+        <button (click)="layout()" class="bg-primary"><lucide-icon [img]="GitBranchPlusIcon"></lucide-icon></button>
+        <button (click)="saveLocal()" class="bg-primary"><lucide-icon [img]="SaveIcon"></lucide-icon></button>
+        <button (click)="loadLocal()" class="bg-primary"><lucide-icon [img]="ShapesIcon"></lucide-icon></button>
+        <button (click)="clearLocal()" class="bg-primary"><lucide-icon [img]="RouteOffIcon"></lucide-icon></button>
+    </div>
+
+
+    <div #cyContainer class="cy"></div>
+
+</div>

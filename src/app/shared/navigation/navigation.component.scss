@@ -1,0 +1,15 @@
+ul{
+    li{
+        cursor: pointer;
+        padding: 10px 15px;
+        transition:.1s;
+        color:#fff;
+        &:hover{
+            background-color: #eae1d4;
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            padding-left: 18px;
+            color:#000;
+        }
+    }
+}

@@ -1,1 +1,24 @@
 /* You can add global styles to this file, and also import other style files */
+@import "tailwindcss";
+
+.bg-primary{
+    background-color: #0a352d;
+}
+.bg-secondary{
+    background-color: #b18343;
+}
+.bg-accent{
+    background-color: #eae1d4;
+}
+.flexrow{
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+}
+.flexcol{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
