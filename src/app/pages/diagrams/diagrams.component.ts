@@ -1,14 +1,16 @@
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Component, ElementRef, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { LucideAngularModule , Workflow , Spline , GitBranchPlus , Save , Shapes , RouteOff} from 'lucide-angular';
+import { LucideAngularModule , RefreshCcw , BetweenHorizontalStart , SquareMousePointer , Workflow , Spline , GitBranchPlus , Save , Shapes , RouteOff} from 'lucide-angular';
 
 
 (cytoscape as any).use(dagre);
 
 @Component({
   selector: 'app-diagram',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule , CommonModule, FormsModule],
   templateUrl: './diagrams.component.html',
   styleUrls: ['./diagrams.component.scss']
 })
@@ -19,8 +21,21 @@ export class DiagramComponent implements OnInit, OnDestroy {
   readonly SaveIcon = Save;
   readonly ShapesIcon = Shapes;
   readonly RouteOffIcon = RouteOff;
+  readonly RefreshIcon = RefreshCcw;
+  readonly UploadSheetIcon = BetweenHorizontalStart;
+  readonly SelectNodeIcon = SquareMousePointer;
   @ViewChild('cyContainer') cyContainer!: ElementRef;
+  selectedFileId: string = '';
+  showImportModal = false;
+  showMappingModal = false;
 
+  sheetUrl = '';
+  sheetColumns: string[][] = [];
+  selectedImportColumn = 0;
+
+  selectedNodeId = '';
+  selectedMapColumn = 0;
+  selectedMapRow = 0;
   cy: any;
   connectMode = false;
   selectedNode: any = null;
@@ -139,5 +154,94 @@ export class DiagramComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
+  }
+  openSheetImport() {
+    this.showImportModal = true;
+  }
+
+  openMapping() {
+    this.showMappingModal = true;
+  }
+  extractSheetID(url: string) {
+    const match = url.match(/\/d\/(.*?)\//);
+    return match ? match[1] : null;
+  }
+  loadSheet() {
+    const sheetId = this.extractSheetID(this.sheetUrl);
+    this.selectedFileId = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+    if (!sheetId) {
+      alert("Invalid Google Sheet URL.");
+      return;
+    }
+    
+
+    fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        const rows = json.table.rows;
+
+        let colCount = rows[0].c.length;
+        this.sheetColumns = Array.from({ length: colCount }, () => []);
+
+        rows.forEach((row: any) => {
+          row.c.forEach((cell: any, colIdx: number) => {
+            this.sheetColumns[colIdx].push(cell?.v ?? "");
+          });
+        });
+
+        alert("Sheet Loaded Successfully!");
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Failed to load sheet.");
+      });
+  }
+  importNodesFromColumn() {
+    const labels = this.sheetColumns[this.selectedImportColumn];
+
+    labels.forEach(text => {
+      const id = 'n' + this.nodeIndex++;
+
+      this.cy.add({
+        group: 'nodes',
+        data: { id, label: text || 'Empty' },
+        position: { x: Math.random() * 300, y: Math.random() * 300 }
+      });
+    });
+
+    alert("Nodes created from column!");
+    this.showImportModal = false;
+  }
+  applyMapping() {
+    const node = this.cy.getElementById(this.selectedNodeId);
+    const label = this.sheetColumns[this.selectedMapColumn][this.selectedMapRow];
+
+    node.data('label', label);
+    
+    alert(`Mapped to Node ${this.selectedNodeId}: "${label}"`);
+
+    this.showMappingModal = false;
+  }
+  refreshFromSheet() {
+    const url = this.selectedFileId + '&cb=' + Date.now();
+
+    fetch(url)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        const rows = json.table.rows;
+
+        rows.forEach((row: any, index: number) => {
+          const newLabel = row.c[1]?.v || 'No Label';
+          const nodeId = 'n' + index;
+          const node = this.cy.getElementById(nodeId);
+
+          if (node) {
+            node.data('label', newLabel);
+          }
+        });
+      })
+      .catch(err => console.error(err));
   }
 }

@@ -1,14 +1,77 @@
 <div class="flexrow h-full !items-start">
     <div class="toolbar flexcol">
-        <button (click)="addNode()" class="bg-primary"><lucide-icon [img]="WorkflowIcon"></lucide-icon></button>
-        <button (click)="enableConnect()" class="bg-primary"><lucide-icon [img]="SplineIcon"></lucide-icon></button>
-        <button (click)="layout()" class="bg-primary"><lucide-icon [img]="GitBranchPlusIcon"></lucide-icon></button>
-        <button (click)="saveLocal()" class="bg-primary"><lucide-icon [img]="SaveIcon"></lucide-icon></button>
-        <button (click)="loadLocal()" class="bg-primary"><lucide-icon [img]="ShapesIcon"></lucide-icon></button>
-        <button (click)="clearLocal()" class="bg-primary"><lucide-icon [img]="RouteOffIcon"></lucide-icon></button>
+        <button (click)="addNode()" class="bg-primary" title="Add Node"><lucide-icon [img]="WorkflowIcon"></lucide-icon></button>
+        <button (click)="enableConnect()" class="bg-primary" title="Connect"><lucide-icon [img]="SplineIcon"></lucide-icon></button>
+        <button (click)="layout()" class="bg-primary" title="Auto Layout"><lucide-icon [img]="GitBranchPlusIcon"></lucide-icon></button>
+        <button (click)="saveLocal()" class="bg-primary" title="Save"><lucide-icon [img]="SaveIcon"></lucide-icon></button>
+        <button (click)="loadLocal()" class="bg-primary" title="Load Existing"><lucide-icon [img]="ShapesIcon"></lucide-icon></button>
+        <button (click)="clearLocal()" class="bg-primary" title="Clear Local"><lucide-icon [img]="RouteOffIcon"></lucide-icon></button>
+        <button (click)="openSheetImport()" class="bg-primary" title="Share Link"><lucide-icon [img]="UploadSheetIcon"></lucide-icon></button>
+        <button (click)="openMapping()" class="bg-primary" title="Map Node"><lucide-icon [img]="SelectNodeIcon"></lucide-icon></button>
+        <button (click)="refreshFromSheet()" class="bg-primary" title="Refresh"><lucide-icon [img]="RefreshIcon"></lucide-icon></button>
     </div>
-
-
     <div #cyContainer class="cy"></div>
 
+</div>
+<div *ngIf="showImportModal" class="modal">
+  <div class="modal-content">
+    <h3>Import Google Sheet</h3>
+
+    <label>Google Sheet URL:</label>
+    <input [(ngModel)]="sheetUrl" placeholder="Paste Google Sheet link here" class="input">
+
+    <button class="btn" (click)="loadSheet()">Load Sheet</button>
+
+    <div *ngIf="sheetColumns.length > 0">
+      <label>Select Column to Import as Nodes:</label>
+      <select [(ngModel)]="selectedImportColumn" class="input">
+        <option *ngFor="let col of sheetColumns; let i = index" [value]="i">
+          Column {{ i + 1 }}
+        </option>
+      </select>
+
+      <button class="btn" (click)="importNodesFromColumn()">Import Column as Nodes</button>
+    </div>
+
+    <button class="btn" (click)="showImportModal=false">Close</button>
+  </div>
+</div>
+
+
+<!-- MAPPING MODAL -->
+<div *ngIf="showMappingModal" class="modal">
+  <div class="modal-content">
+    <h3>Map Sheet Cell → Node</h3>
+
+    <div *ngIf="sheetColumns.length == 0">
+      <p>No sheet loaded yet. Please import a Google Sheet first.</p>
+      <button class="btn" (click)="showMappingModal=false">Close</button>
+    </div>
+
+    <div *ngIf="sheetColumns.length > 0">
+      <label>Select Node:</label>
+      <select [(ngModel)]="selectedNodeId" class="input">
+        <option *ngFor="let node of cy?.nodes()" [value]="node.id()">
+          {{ node.id() }} — {{ node.data('label') }}
+        </option>
+      </select>
+
+      <label>Select Sheet Column:</label>
+      <select [(ngModel)]="selectedMapColumn" class="input">
+        <option *ngFor="let col of sheetColumns; let i=index" [value]="i">
+          Column {{ i + 1 }}
+        </option>
+      </select>
+
+      <label>Select Sheet Row:</label>
+      <select [(ngModel)]="selectedMapRow" class="input">
+        <option *ngFor="let row of sheetColumns[0]; let r=index" [value]="r">
+          Row {{ r + 1 }}
+        </option>
+      </select>
+
+      <button class="btn" (click)="applyMapping()">Apply</button>
+      <button class="btn" (click)="showMappingModal=false">Close</button>
+    </div>
+  </div>
 </div>
