@@ -15,6 +15,9 @@ export class DiagramsService {
   displayDiagrams(): Observable<Diagrams[]>{
     return this.http.get<Diagrams[]>(`${this.apiUrl}/display`);
   }
+  displayDiagramsbyID(id : number): Observable<Diagrams>{
+    return this.http.get<Diagrams>(`${this.apiUrl}/display/${id}`);
+  }
   storeDiagrams(post: Diagrams): Observable<Diagrams>{
     return this.http.post<Diagrams>(`${this.apiUrl}/store`, post);
   }

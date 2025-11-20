@@ -36,5 +36,8 @@ export class DiagramslistComponent implements OnInit {
       this.router.navigate(['/home', 'displayDiagram', this.diagramID]);
     }
   }
+  newDiagram(){
+    this.router.navigate(['/home', 'createDiagram']);
+  }
 
 }

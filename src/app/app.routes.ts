@@ -12,6 +12,7 @@ export const routes: Routes = [
             {path: 'diagramsDisplay', component: DiagramslistComponent},
             {path: 'diagrams', component: DiagramslistComponent},
             {path: 'displayDiagram/:id', component: DiagramComponent},
+            {path: 'createDiagram', component: DiagramComponent},
             {path: 'conversion', component: ConversionComponent},
             {path: 'documents', component: DocumentsComponent},
             {path: 'notes', component: DiagramslistComponent},

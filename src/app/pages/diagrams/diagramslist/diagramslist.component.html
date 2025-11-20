@@ -2,7 +2,7 @@
     <div class="w-[80%] h-full p-3">
         <div class="border-b-2 pb-3 flexrow justify-between items-center">
             <header class="text-xl">Diagrams List</header>
-            <button class="px-5 py-2 rounded-xl text-white bg-primary">New Diagram</button>
+            <button class="px-5 py-2 rounded-xl text-white bg-primary" (click)="newDiagram()">New Diagram</button>
         </div>
         <div class="w-full h-[80%] overflow-auto mt-5 flexcol gap-4">
             <div *ngFor="let diagram of diagramsList; let index = index" class="w-full p-3">

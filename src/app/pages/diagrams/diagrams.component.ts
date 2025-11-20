@@ -9,6 +9,7 @@ import { Diagrams } from '../../Models/Diagrams/diagrams.model';
 import { HttpClientModule } from '@angular/common/http';
 import { ColornodesService } from '../../Services/ColorNodes/colornodes.service';
 import { ColorNodes } from '../../Models/ColorNodes/color-nodes.model';
+import { ActivatedRoute } from '@angular/router';
 
 (cytoscape as any).use(dagre);
 
@@ -75,14 +76,21 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   connectMode = false;
   selectedNode: any = null;
   nodeIndex = 1;
+  fetchDiagramID: number | null = null;
 
   projects: ProjectRow[] = [];
   showAccordion = false;
   accordionData: ProjectRow | null = null;
 
-  constructor(private DiagramsServices: DiagramsService , private ColorServices : ColornodesService){}
+  constructor(private DiagramsServices: DiagramsService , private ColorServices : ColornodesService , private ActRouter : ActivatedRoute){}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.fetchDiagramID = this.ActRouter.snapshot.params['id'];
+    this.diagramID = this.ActRouter.snapshot.params['id'];
+    if (this.fetchDiagramID) {
+      this.fetchDiagramByID();
+    }
+  }
 
   ngAfterViewInit() {
     this.initCytoscape();
@@ -157,6 +165,20 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         if (newLabel !== null) node.data('label', newLabel);
       }
     });
+    this.cy.on('cxttap', 'node', (evt: any) => {
+      const node = evt.target;
+
+      if (confirm(`Delete node "${node.data('label')}"?`)) {
+        this.cy.remove(node);
+      }
+    });
+    this.cy.on('cxttap', 'edge', (evt: any) => {
+      const edge = evt.target;
+
+      if (confirm("Delete this connection?")) {
+        this.cy.remove(edge);
+      }
+    });
   }
 
   addNode() {
@@ -170,6 +192,26 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
   }
+  removeNode() {
+    if (!this.selectedNode) {
+      alert("No node selected.");
+      return;
+    }
+
+    this.cy.remove(this.selectedNode);
+    this.selectedNode = null;
+  }
+  removeEdge(edgeId: string) {
+    const edge = this.cy.getElementById(edgeId);
+
+    if (!edge.length) {
+      alert("Edge not found.");
+      return;
+    }
+
+    this.cy.remove(edge);
+  }
+
 
   enableConnect() {
     this.connectMode = true;
@@ -196,8 +238,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.diagramID == null) {
       this.DiagramsServices.storeDiagrams(this.diagramsField).subscribe((diagram:any)=>{
         this.diagramID = diagram.data.id
-        console.log('Saved diagram id', this.diagramID);
-        debugger;
       });
       alert('Diagrams Added');
     }
@@ -395,5 +435,19 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     alert(`Mapped to Node ${this.selectedNodeId}: "${label}"`);
 
     this.showMappingModal = false;
+  }
+  fetchDiagramByID() {
+    this.DiagramsServices.displayDiagramsbyID(this.fetchDiagramID!).subscribe((data) => {
+      this.diagramsField = data;
+      if (this.diagramsField.json_data) {
+        const json = JSON.parse(this.diagramsField.json_data);
+        setTimeout(() => {
+          if (this.cy) {
+            this.cy.json(json);
+            this.cy.fit();
+          }
+        }, 300);
+      }
+    });
   }
 }
