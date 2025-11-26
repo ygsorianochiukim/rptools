@@ -29,3 +29,6 @@
 button{
     cursor: pointer;
 }
+.input-field {
+  @apply w-full border p-3 rounded-xl placeholder:text-gray-500 flex flex-row items-center gap-2;
+}

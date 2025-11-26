@@ -10,6 +10,7 @@ import { Diagrams } from '../../Models/Diagrams/diagrams.model';
 import { ColorNodes } from '../../Models/ColorNodes/color-nodes.model';
 import { HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
+import { AuthService } from '../../Services/Auth/auth-services.service';
 
 (cytoscape as any).use(dagre);
 
@@ -22,7 +23,7 @@ interface DynamicRow {
   imports: [LucideAngularModule, CommonModule, FormsModule, HttpClientModule],
   templateUrl: './diagrams.component.html',
   styleUrls: ['./diagrams.component.scss'],
-  providers: [DiagramsService, ColornodesService]
+  providers: [DiagramsService, ColornodesService , AuthService]
 })
 export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly WorkflowIcon = Workflow;
@@ -82,7 +83,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private DiagramService: DiagramsService,
     private ColorService: ColornodesService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private AuthServices: AuthService
   ) {}
 
   ngOnInit() {
@@ -459,6 +461,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         console.error(err);
         alert("Failed to refresh sheet data.");
       });
+  }
+
+  fetchUser(){
+    this.AuthServices.getUserFromAPI().subscribe((Userdata) => {
+      this.User = Userdata;
+      this.Name = this.User.firstname + " " + this.User.lastname;
+    });
   }
 
 

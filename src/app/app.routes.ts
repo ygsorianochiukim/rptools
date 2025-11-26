@@ -4,9 +4,11 @@ import { ConversionComponent } from './pages/conversion/conversion.component';
 import { DocumentsComponent } from './pages/documents/documents.component';
 import { LayoutComponent } from './layout/layout/layout.component';
 import { DiagramslistComponent } from './pages/diagrams/diagramslist/diagramslist.component';
+import { LoginComponent } from './auth/login/login.component';
 
 export const routes: Routes = [
-    {path:'' , redirectTo:'home' , pathMatch:'full'},
+    {path:'' , redirectTo:'login' , pathMatch:'full'},
+    {path:'login' , component: LoginComponent},
     {path: 'home' , component:LayoutComponent ,
         children: [
             {path: 'diagramsDisplay', component: DiagramslistComponent},
