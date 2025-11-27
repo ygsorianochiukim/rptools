@@ -51,8 +51,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   headers: string[] = [];
   rows: any[] = [];
   mapping = { id: 0, label: 1, dependency: null as number | null };
-  dependency: string = '';
-  depency_value:string = '';
+
   diagramsField: Diagrams = {
     name: '',
     description: '',
@@ -423,6 +422,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       return { id, label, dep, details };
     });
 
+
+
     const idSet = new Set(data.map(x => x.id));
 
     // Create nodes with displayLabel combining label + selected fields
@@ -468,6 +469,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     });
+    const selectedHeaders = this.headers
+      .filter((_, i) => this.selectedNodeDisplay[i]) // get only checked items
+      .join(','); // convert to comma-separated string
+
+    this.diagramsField.node_data = selectedHeaders;
+
+    console.log('Saved node_data:', this.diagramsField.node_data);
 
     // apply connection style and run layout
     this.applyConnectionStyle();
@@ -539,6 +547,16 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     // Build boolean array of checked headers
     this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
   }
+
+  restoreMappingFromSavedNodeData() {
+    if (!this.diagramsField.node_data || this.headers.length === 0) return;
+
+    const nodeList = this.diagramsField.node_data.split(',').map(x => x.trim());
+
+    this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
+  }
+
+
 
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
