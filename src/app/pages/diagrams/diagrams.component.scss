@@ -19,10 +19,6 @@
       }
     }
 }
-
-button {
-    margin-right: 8px;
-}
 .modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -36,7 +32,7 @@ button {
 .modal-content {
   background: white;
   padding: 20px;
-  width: 360px;
+  width: 40%;
   border-radius: 12px;
   display: flex;
   flex-direction: column;

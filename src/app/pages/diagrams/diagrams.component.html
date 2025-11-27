@@ -1,44 +1,44 @@
 <div class="flexcol h-full !items-start">
-  <div class="toolbar flexrow">
+  <div class="toolbar !gap-2 flexrow">
     <button (click)="addNode()" class="bg-primary" title="Add Node">
-      <lucide-icon [img]="WorkflowIcon"></lucide-icon> Add Nodes
+      <lucide-icon [img]="WorkflowIcon"></lucide-icon>Nodes
     </button>
-    <select [(ngModel)]="connectionStyle" (change)="applyConnectionStyle()" class="bg-primary input mt-2 text-white p-2">
+
+    <select [(ngModel)]="connectionStyle" (change)="applyConnectionStyle()" class="bg-primary input text-white p-2">
       <option value="straight">Straight</option>
-      <option value="curve">Curve</option>
       <option value="angle">Angle</option>
     </select>
 
     <button (click)="enableConnect()" class="bg-primary" title="Connect">
-      <lucide-icon [img]="SplineIcon"></lucide-icon> Connect Nodes
+      <lucide-icon [img]="GitBranchPlusIcon"></lucide-icon>Connect
     </button>
 
-    <button (click)="layout()" class="bg-primary" title="Auto Layout">
-      <lucide-icon [img]="GitBranchPlusIcon"></lucide-icon> Auto Layout
+    <button (click)="layout()" class="bg-primary text-sm" title="Auto Layout">
+      <lucide-icon [img]="ShapesIcon"></lucide-icon>Layout
     </button>
 
     <button (click)="saveLocal()" class="bg-primary" title="Save">
-      <lucide-icon [img]="SaveIcon"></lucide-icon> Save Diagrams
+      <lucide-icon [img]="SaveIcon"></lucide-icon>Save
     </button>
 
     <button (click)="openSheetImport()" class="bg-primary" title="Import Sheet">
-      <lucide-icon [img]="UploadSheetIcon"></lucide-icon> Upload G-Sheet
+      <lucide-icon [img]="UploadSheetIcon"></lucide-icon>Upload Sheet
     </button>
 
     <button (click)="showMappingModal = true" class="bg-primary" title="Map Columns">
-      <lucide-icon [img]="SelectNodeIcon"></lucide-icon> Map Columns
+      <lucide-icon [img]="SelectNodeIcon"></lucide-icon>Map
     </button>
 
-    <button (click)="colorNodes()" class="bg-primary" title="Color">
+    <!-- <button (click)="colorNodes()" class="bg-primary" title="Color">
       <lucide-icon [img]="PaletteIcon"></lucide-icon> Color Nodes
-    </button>
+    </button> -->
 
     <button (click)="refreshFromSheet()" class="bg-primary" title="Re-layout">
-      <lucide-icon [img]="RefreshIcon"></lucide-icon> Refresh Data
+      <lucide-icon [img]="RefreshIcon"></lucide-icon>Refresh
     </button>
   </div>
 
-  <div #cyContainer class="cy border"></div>
+  <div #cyContainer class="cy border h-full"></div>
 </div>
 
 <!-- SAVE DIAGRAMS MODAL -->
@@ -80,6 +80,8 @@
     </form>
   </div>
 </div>
+
+<!-- IMPORT SHEET MODAL -->
 <div *ngIf="showImportModal" class="modal">
   <div class="modal-content">
     <h3>Import Google Sheet</h3>
@@ -91,21 +93,13 @@
       <button class="btn" (click)="loadSheet()">Load Sheet</button>
       <button class="btn" (click)="showImportModal = false">Close</button>
     </div>
-
-    <div *ngIf="headers.length">
-      <h4>Detected Headers</h4>
-      <ul class="small-list">
-        <li *ngFor="let h of headers; let i = index">Column {{ i + 1 }} — {{ h || 'Column ' + (i+1) }}</li>
-      </ul>
-      <p class="muted">After loading the sheet you can map which columns represent ID, Label, and Dependency.</p>
-    </div>
   </div>
 </div>
 
-<!-- MAPPING MODAL (dynamic mapping) -->
+<!-- MAPPING MODAL -->
 <div *ngIf="showMappingModal" class="modal">
   <div class="modal-content">
-    <h3>Map Columns → Node</h3>
+    <header class="font-semibold text-2xl">Column Mapper</header>
 
     <div *ngIf="!headers.length">
       <p>No sheet loaded yet. Click <strong>Import Sheet</strong> and load a Google Sheet first.</p>
@@ -115,20 +109,26 @@
     </div>
 
     <div *ngIf="headers.length">
-      <label>Node ID column</label>
-      <select [(ngModel)]="mapping.id" class="input">
-        <option *ngFor="let h of headers; let i = index" [value]="i">{{ h || 'Column ' + (i+1) }}</option>
-      </select>
+      <div class="flexcol w-full !justify-start !items-start">
+        <div class="flexcol !gap-1 !items-start w-full">
+          <label>Node ID column</label>
+          <select [(ngModel)]="mapping.id" class="input w-full">
+            <option *ngFor="let h of headers; let i = index" [ngValue]="i">{{ h || 'Column ' + (i+1) }}</option>
+          </select>
+        </div>
 
-      <label>Label column</label>
-      <select [(ngModel)]="mapping.label" class="input">
-        <option *ngFor="let h of headers; let i = index" [value]="i">{{ h || 'Column ' + (i+1) }}</option>
-      </select>
+        <div class="flexcol !gap-1 !items-start w-full">
+          <label>Label column</label>
+          <select [(ngModel)]="mapping.label" class="input w-full">
+            <option *ngFor="let h of headers; let i = index" [ngValue]="i">{{ h || 'Column ' + (i+1) }}</option>
+          </select>
+        </div>
+      </div>
 
       <label>Does this file include dependencies?</label>
       <div class="row">
         <label class="inline">
-          <input type="radio" name="hasDep" [checked]="mapping.dependency !== null" (click)="mapping.dependency = null; mapping.dependency = null; mapping.dependency = null;"/>
+          <input type="radio" name="hasDep" [checked]="mapping.dependency === null" (click)="mapping.dependency = null"/>
           No
         </label>
         <label class="inline">
@@ -140,24 +140,16 @@
       <div *ngIf="mapping.dependency !== null">
         <label>Dependency column (comma separated values expected)</label>
         <select [(ngModel)]="mapping.dependency" class="input">
-          <option *ngFor="let h of headers; let i = index" [value]="i">{{ h || 'Column ' + (i+1) }}</option>
+          <option *ngFor="let h of headers; let i = index" [ngValue]="i">{{ h || 'Column ' + (i+1) }}</option>
         </select>
       </div>
-
-      <div class="preview">
-        <h4>Sample rows (first 5)</h4>
-        <table class="table small">
-          <thead>
-            <tr>
-              <th *ngFor="let h of headers">{{ h || '-' }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of rows | slice:0:5">
-              <td *ngFor="let c of r.c">{{ c?.v || '' }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <header class="font-semibold text-lg mt-3 mb-1">Select Columns to Display</header>
+      <div class="preview grid grid-cols-3 mb-5">
+        
+        <div *ngFor="let header of headers; let index = index" class="map-checkbox">
+          <input type="checkbox" [(ngModel)]="selectedNodeDisplay[index]">
+          <label>{{header || '-'}}</label>
+        </div>
       </div>
 
       <div class="modal-actions">
