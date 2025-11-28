@@ -32,3 +32,23 @@ button{
 .input-field {
   @apply w-full border p-3 rounded-xl placeholder:text-gray-500 flex flex-row items-center gap-2;
 }
+/* width */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #e5e7eb; /* gray-200 */
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #6b7280; /* gray-500 */
+  border-radius: 9999px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #374151; /* gray-700 */
+}

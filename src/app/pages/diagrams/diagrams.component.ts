@@ -158,14 +158,12 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         node.data('displayLabel', extra ? `${newLabel}\n${extra}` : newLabel);
       }
     });
-
     this.cy.on('cxttap', 'node', (evt: any) => {
       const node = evt.target;
       if (confirm(`Delete node "${node.data('label')}"?`)) {
         this.cy.remove(node);
       }
     });
-
     this.cy.on('cxttap', 'edge', (evt: any) => {
       const edge = evt.target;
       if (confirm('Delete connection?')) {
@@ -179,11 +177,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log(`Resized ${node.data('id')} to ${node.width()}x${node.height()}`);
     });
   }
-
-  // -----------------------------
-  // Toolbar Actions
-  // -----------------------------
-
   addNode() {
     const id = 'n' + this.nodeIndex++;
     const label = 'New Node';
@@ -261,25 +254,17 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         .join('\n');
       node.data('displayLabel', extra ? `${label}\n${extra}` : label);
     });
-
-    // 3️⃣ Prepare JSON for saving
     const json = this.cy.json();
     this.diagramsField.json_data = JSON.stringify(json);
     this.diagramsField.sheet_url = this.sheetUrl || this.diagramsField.sheet_url;
     this.diagramsField.line_category = this.connectionStyle;
-
-    // 4️⃣ Handle dependency info
     if (!this.sheetUrl || this.mapping.dependency === null) {
-      // No sheet or no dependency column selected
       this.diagramsField.dependency = 'no';
       this.diagramsField.dependency_value = '';
     } else {
-      // Sheet exists, handle dependency column
       this.diagramsField.dependency = 'yes';
       this.diagramsField.dependency_value = this.headers[this.mapping.dependency] ?? '';
     }
-
-    // 5️⃣ Save or update diagram
     if (!this.diagramID) {
       this.DiagramService.storeDiagrams(this.diagramsField).subscribe(
         (res: any) => {
@@ -295,42 +280,29 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       );
     }
   }
-
-
   clearLocal() {
     localStorage.removeItem('diagram');
     alert('Local Storage Cleared');
   }
-
   colorNodes() {
     this.ShowColorModal = true;
   }
-
   saveColorDiagramsInformation() {
     this.ColorNodeFields.diagram_id = this.diagramID;
     this.ColorNodeFields.color_key = this.ColorNodeFields.color_code;
-
     this.ColorService.storeDiagramsColorNodes(this.ColorNodeFields).subscribe(() => {
       alert("Color Saved");
     }, () => alert('Failed to save color'));
   }
-
-  // -----------------------------
-  // Google Sheet Import (centralized)
-  // -----------------------------
-
   extractSheetID(url: string) {
     if (!url) return null;
     const match = url.match(/\/d\/(.*?)\//);
     return match ? match[1] : null;
   }
-
   openSheetImport() {
     this.showImportModal = true;
   }
-
   loadSheet() {
-    // Called from import modal: use sheetUrl (input)
     const sheetId = this.extractSheetID(this.sheetUrl);
     if (!sheetId) {
       alert('Invalid Google Sheet URL');
@@ -338,83 +310,50 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.loadSheetFromUrl(this.sheetUrl, true);
   }
-
-  /**
-   * Central function to load headers & rows from a sheet URL.
-   * If generate === true, it will generate nodes immediately.
-   */
   loadSheetFromUrl(url: string, generate: boolean = false) {
     const sheetId = this.extractSheetID(url);
     if (!sheetId) {
       alert('Invalid Google Sheet URL');
       return;
     }
-
     fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`)
       .then(res => res.text())
       .then(text => {
         const json = JSON.parse(text.substr(47).slice(0, -2));
-
-        // Headers & rows
         this.headers = json.table.cols.map((c: any) => c.label || 'Column');
         this.rows = json.table.rows || [];
-
-        // ensure selectedNodeDisplay has the right length
         if (!this.selectedNodeDisplay || this.selectedNodeDisplay.length !== this.headers.length) {
           this.selectedNodeDisplay = new Array(this.headers.length).fill(false);
         }
-
-        // if diagram has saved node_data, restore selections before generating
         this.restoreMappingFromSavedNodeData();
-
-        // if this was a saved diagram being opened, persist the sheet URL to diagramsField
         this.diagramsField.sheet_url = url;
-
         if (generate) {
           this.generateNodesDynamic();
         } else {
-          // show mapping modal (if from import)
           this.showMappingModal = true;
         }
-
       })
       .catch(err => {
         console.error(err);
         alert('Failed to load sheet.');
       });
   }
-
-  // -----------------------------
-  // FINAL NODE GENERATION (DYNAMIC)
-  // -----------------------------
-
   generateNodesDynamic() {
-    // remove everything safely
     if (this.cy) this.cy.elements().remove();
-
-    // build selected headers array from UI (selectedNodeDisplay)
     const selectedHeaders = this.headers
       .filter((_, i) => this.selectedNodeDisplay[i])
       .map(h => h.trim());
-
-    // save into DB model (as comma list)
     this.diagramsField.node_data = selectedHeaders.join(',');
-
-    // Build rows -> nodes
     const data = this.rows.map((row: any, i: number) => {
       const cells = row.c || [];
 
       const id = (cells[this.mapping.id]?.v ?? `auto-${i}`).toString().trim();
       const label = (cells[this.mapping.label]?.v ?? id).toString().trim();
-
-      // prepare details: only include selected headers
       const details: Record<string, any> = {};
       selectedHeaders.forEach(h => {
         const colIndex = this.headers.indexOf(h);
         details[h] = (cells[colIndex]?.v ?? '').toString();
       });
-
-      // dependency handling
       const dep = this.mapping.dependency !== null
         ? (cells[this.mapping.dependency]?.v ?? '').toString().trim()
         : '';
@@ -425,16 +364,12 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
     const idSet = new Set(data.map(x => x.id));
-
-    // Create nodes with displayLabel combining label + selected fields
     data.forEach((item, i) => {
       const extra = Object.entries(item.details)
         .map(([k, v]) => `${k}: ${v}`)
         .join('\n');
 
       const displayLabel = extra ? `${item.label}\n${extra}` : item.label;
-
-      // avoid duplicate nodes
       if (this.cy.$id(item.id).length === 0) {
         this.cy.add({
           group: 'nodes',
@@ -443,23 +378,17 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       }
     });
-
-    // Add dependencies (edges & placeholders for missing nodes)
     data.forEach((item) => {
       if (!item.dep) return;
-
       const deps = item.dep.split(',').map((x: string) => x.trim()).filter(Boolean);
-
       deps.forEach((dep: any) => {
         if (!idSet.has(dep) && this.cy.$id(dep).length === 0) {
-          // create placeholder node if dependency not found
           this.cy.add({
             group: 'nodes',
             classes: 'placeholder',
             data: { id: dep, label: dep, displayLabel: dep, details: {} }
           });
         }
-
         const edgeId = `e-${dep}-${item.id}`;
         if (this.cy.$id(edgeId).length === 0) {
           this.cy.add({
@@ -469,13 +398,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     });
-    const selectedHeaders = this.headers
-      .filter((_, i) => this.selectedNodeDisplay[i]) // get only checked items
-      .join(','); // convert to comma-separated string
-
-    this.diagramsField.node_data = selectedHeaders;
-
-    console.log('Saved node_data:', this.diagramsField.node_data);
 
     // apply connection style and run layout
     this.applyConnectionStyle();
@@ -491,41 +413,32 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadSheetForRefresh() {
-    // kept for backwards compatibility — use refreshFromSheet()
     this.refreshFromSheet();
   }
 
   fetchDiagramByID() {
     this.DiagramService.displayDiagramsbyID(this.diagramID!).subscribe((data) => {
       this.diagramsField = data;
-
-      // if there is saved sheet_url, auto-load it (headers + rows) and then regenerate nodes
       if (this.diagramsField.sheet_url) {
-        // keep sheetUrl input value in sync
         this.sheetUrl = this.diagramsField.sheet_url;
-        this.loadSheetFromUrl(this.diagramsField.sheet_url, false); // load headers/rows and restore selections
+        this.loadSheetFromUrl(this.diagramsField.sheet_url, false);
       }
 
       if (this.diagramsField.json_data) {
         try {
           const json = JSON.parse(this.diagramsField.json_data);
+          this.cy.json(json);
           setTimeout(() => {
-            // if json contains elements, restore them
-            if (this.cy) {
-              this.cy.json(json);
-              this.cy.fit();
-            }
-            // apply saved line style
+            this.cy.nodes().forEach((node: any) => node.trigger('resize'));
+            this.cy.edges().forEach((edge: any) => edge.trigger('position'));
             this.connectionStyle = (this.diagramsField.line_category as any) || this.connectionStyle;
             this.applyConnectionStyle();
-          }, 300);
+            this.cy.fit();
+          }, 50);
         } catch (err) {
           console.warn('Invalid saved json_data');
         }
       }
-
-      // restore selectedNodeDisplay if node_data exists and headers were previously loaded.
-      // If headers aren't loaded yet, restoreMappingFromSavedNodeData() will be called by loadSheetFromUrl
       this.restoreMappingFromSavedNodeData();
     }, (err) => {
       console.error(err);
@@ -534,29 +447,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   restoreMappingFromSavedNodeData() {
-    // If no saved node_data, nothing to restore
     if (!this.diagramsField.node_data) return;
-
-    // Ensure headers are loaded; otherwise we can't map
     if (!this.headers || this.headers.length === 0) {
       return;
     }
-
     const nodeList = this.diagramsField.node_data.split(',').map(x => x.trim()).filter(Boolean);
-
-    // Build boolean array of checked headers
     this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
   }
-
-  restoreMappingFromSavedNodeData() {
-    if (!this.diagramsField.node_data || this.headers.length === 0) return;
-
-    const nodeList = this.diagramsField.node_data.split(',').map(x => x.trim());
-
-    this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
-  }
-
-
 
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();

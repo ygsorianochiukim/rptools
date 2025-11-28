@@ -46,16 +46,19 @@
   <div class="modal-content">
     <form (ngSubmit)="saveDiagramsInformation()">
       <h3>Diagrams Information</h3>
-
-      <label>Diagram Name</label>
-      <input type="text" name="name" [(ngModel)]="diagramsField.name" placeholder="Name" class="input">
-
-      <label>Description</label>
-      <textarea name="description" [(ngModel)]="diagramsField.description" placeholder="Description" class="input"></textarea>
-
-      <div class="modal-actions">
+      <div>
+        <div class="flexcol !items-start w-full">
+          <label>Diagram Name</label>
+          <input type="text" name="name" [(ngModel)]="diagramsField.name" placeholder="Name" class="input w-full">
+        </div>
+        <div class="flexcol !items-start w-full">
+          <label>Description</label>
+          <textarea name="description" [(ngModel)]="diagramsField.description" placeholder="Description" class="input w-full"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions mt-3 flexrow gap-3">
         <button class="btn" type="submit">Save Diagrams Information</button>
-        <button class="btn" type="button" (click)="ShowSavingModal = false">Close</button>
+        <button class="btn !bg-red-600" type="button" (click)="ShowSavingModal = false">Close</button>
       </div>
     </form>
   </div>

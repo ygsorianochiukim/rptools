@@ -38,7 +38,7 @@
       </button>
 
       <div>
-        <span class="text-center block mt-2 cursor-pointer">Create Account</span>
+        <span class="text-center block mt-2 cursor-pointer" (click)="openRegistration()">Create Account</span>
       </div>
 
       <p *ngIf="errorMessage" class="text-red-500 text-center mt-3">
@@ -46,5 +46,23 @@
       </p>
       
     </form>
+  </div>
+</div>
+
+<div *ngIf="UserRegistrationModal" class="w-full bg-black/50 h-dvh !absolute top-0">
+  <div class="w-[40%] h-[60%] overflow-auto flex-1 p-4 rounded-xl bg-accent fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
+    <div class="flexrow !justify-between">
+      <header></header>
+      <button (click)="UserRegistrationModal = false">X</button>
+    </div>
+    <form>
+
+    </form>
+    <div *ngFor="let user of UserList" class="flexrow !items-center justify-between border-b py-2">
+      <div>
+        {{ user.firstname | titlecase}} {{ user.lastname | titlecase}}
+      </div>
+      <button (click)="registerUser(user.s_bpartner_employee_id!)">Select</button>
+    </div>
   </div>
 </div>
