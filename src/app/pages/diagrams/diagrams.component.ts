@@ -51,8 +51,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   headers: string[] = [];
   rows: any[] = [];
   mapping = { id: 0, label: 1, dependency: null as number | null };
-  dependency: string = '';
-  depency_value:string = '';
+
   diagramsField: Diagrams = {
     name: '',
     description: '',
@@ -362,6 +361,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       return { id, label, dep, details };
     });
 
+
+
     const idSet = new Set(data.map(x => x.id));
     data.forEach((item, i) => {
       const extra = Object.entries(item.details)
@@ -397,6 +398,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     });
+
+    // apply connection style and run layout
     this.applyConnectionStyle();
     this.layout();
   }
@@ -451,6 +454,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     const nodeList = this.diagramsField.node_data.split(',').map(x => x.trim()).filter(Boolean);
     this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
   }
+
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
   }
