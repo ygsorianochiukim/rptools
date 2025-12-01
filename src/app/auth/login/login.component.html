@@ -39,6 +39,7 @@
 
       <div>
         <span class="text-center block mt-2 cursor-pointer" (click)="openRegistration()">Create Account</span>
+        <div id="googleBtn" class="mt-4 w-full flex justify-center">Google</div>
       </div>
 
       <p *ngIf="errorMessage" class="text-red-500 text-center mt-3">
@@ -63,6 +64,7 @@
         {{ user.firstname | titlecase}} {{ user.lastname | titlecase}}
       </div>
       <button (click)="registerUser(user.s_bpartner_employee_id!)">Select</button>
+      
     </div>
   </div>
 </div>

@@ -25,8 +25,22 @@ export class AuthService {
     return this.http.get<User[]>(`${this.apiUrl}/userAccount`);
   }
 
+  googleLogin(token: string) {
+    return this.http.post(`http://127.0.0.1:8000/api/google-login`, { token });
+  }
+
   me() {
     return this.http.get(`${this.apiUrl}/me`);
+  }
+
+  getUser() {
+    const token = localStorage.getItem('token');
+
+    return this.http.get(`http://127.0.0.1:8000/api/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
   }
 
   isAuthenticated() {
