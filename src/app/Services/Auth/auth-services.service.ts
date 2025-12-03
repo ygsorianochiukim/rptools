@@ -2,10 +2,12 @@ import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { catchError, from, Observable, of, tap } from 'rxjs';
 import { User } from '../../Models/User/user.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private apiUrl = 'https://park.renaissance.ph/api';
+  private apiUrl1 = `${environment.apiUrl}`;
 
   constructor(private http: HttpClient) {}
   token = signal<string | null>(null);
@@ -19,7 +21,6 @@ export class AuthService {
     const authToken = this.token();
 
     if (!authToken) {
-      // No token → just clear and exit
       this.token.set(null);
       localStorage.removeItem('token');
       return of(true);
@@ -50,7 +51,7 @@ export class AuthService {
   }
 
   googleLogin(token: string) {
-    return this.http.post(`http://127.0.0.1:8000/api/google-login`, { token });
+    return this.http.post(`${this.apiUrl1}/google-login`, { token });
   }
 
   me() {
@@ -60,7 +61,7 @@ export class AuthService {
   getUser() {
     const token = localStorage.getItem('token');
 
-    return this.http.get(`http://127.0.0.1:8000/api/user`, {
+    return this.http.get(`${this.apiUrl1}/user`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
