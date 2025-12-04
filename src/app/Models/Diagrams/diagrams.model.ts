@@ -10,4 +10,5 @@ export interface Diagrams {
     sheet_url?: string,
     s_bpartner_i_employee_id?: number | null,
     created_by?: number | null,
+    is_shareable? : boolean | null,
 }

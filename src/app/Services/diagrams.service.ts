@@ -24,4 +24,11 @@ export class DiagramsService {
   updateDiagrams(post: Diagrams , id: number): Observable<Diagrams>{
     return this.http.put<Diagrams>(`${this.apiUrl}/update/${id}`, post);
   }
+  updateSharedAccess(sharedAccess : boolean , id: number): Observable<Diagrams>{
+    return this.http.put<Diagrams>(`${this.apiUrl}/updateShareable/${id}`, {is_shareable : sharedAccess});
+  }
+  getUserDiagrams(userId: number): Observable<{ owned: Diagrams[], shared: Diagrams[] }> {
+    return this.http.get<{ owned: Diagrams[], shared: Diagrams[] }>(`${this.apiUrl}/user/${userId}`);
+  }
+
 }

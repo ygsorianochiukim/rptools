@@ -4,15 +4,28 @@
             <header class="text-xl">Diagrams List <p>Welcome, {{ user.name | titlecase}}!</p></header>
             <button class="px-5 py-2 rounded-xl text-white bg-primary" (click)="newDiagram()">New Diagram</button>
         </div>
-        <div class="w-full h-[80%] overflow-auto mt-5 flexcol !gap-1">
-            <div *ngFor="let diagram of diagramsList; let index = index" class="w-full pt-2 pr-4">
+        <div class="w-full h-[80%] overflow-auto mt-5 flexcol !items-start !gap-1">
+            <header class="font-semibold text-xl">Your Diagrams</header>
+            <div *ngFor="let diagram of ownedDiagrams; let index = index" class="w-full pt-2 pr-4">
                 <div class="w-full border rounded-xl p-2 pl-4 flexrow justify-between items-center">
                     <div>
                         <span>{{diagram.name | titlecase}}</span>
                         <p>{{diagram.description}}</p>
                     </div>
                     <div class="flexrow ">
-                        <button class="bg-green-700 text-white p-2 px-5 rounded-xl">Share Diagrams</button>
+                        <button class="bg-green-700 text-white p-2 px-5 rounded-xl" (click)="openShareModal(diagram.id!)">Share Diagrams</button>
+                        <button class="bg-blue-700 text-white p-2 px-5 rounded-xl" (click)="viewDiagrams(diagram.id!)">View</button>
+                    </div>
+                </div>
+            </div>
+            <header class="font-semibold mt-3 text-xl">Shared Diagrams</header>
+            <div *ngFor="let diagram of sharedDiagrams; let index = index" class="w-full pt-2 pr-4">
+                <div class="w-full border rounded-xl p-2 pl-4 flexrow justify-between items-center">
+                    <div>
+                        <span>{{diagram.name | titlecase}}</span>
+                        <p>{{diagram.description}}</p>
+                    </div>
+                    <div class="flexrow ">
                         <button class="bg-blue-700 text-white p-2 px-5 rounded-xl" (click)="viewDiagrams(diagram.id!)">View</button>
                     </div>
                 </div>
@@ -20,3 +33,37 @@
         </div>
     </div>
 </div>
+
+@if (shareModal) {
+    <div class="modal">
+        <div class="modal-content">
+            <div class="flexrow !justify-between border-b-2 pb-3">
+                <header class="font-semibold">Sharing Option</header>
+                <button (click)="closeShareModal()"><lucide-icon [img]="CloseIcon"></lucide-icon></button>
+            </div>
+            <form>
+                <div>
+                    <label for="shareToggle">Enable Shareable</label>
+                    <label class="switch">
+                        <input type="checkbox" id="shareToggle" name="shareOption" [(ngModel)]="shareOption" (change)="onToggleChange()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                @if (shareOption) {
+                    <div>
+                        <header>
+                            Select User to Access Diagram
+                        </header>
+                        <div class="h-[300px] overflow-auto">
+                            <div *ngFor="let user of UserList" class="flexrow">
+                                <input type="checkbox" [value]="user.id" (change)="onUserCheckboxChange($event)">
+                                <span>{{ user.name | titlecase }}</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+                <button (click)="saveSelectedUsers()" class="px-10 py-2 bg-blue-700 text-white rounded-xl mt-3">Update Changes</button>
+            </form>
+        </div>
+    </div>
+}

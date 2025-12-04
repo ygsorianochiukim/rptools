@@ -11,6 +11,7 @@ import { ColorNodes } from '../../Models/ColorNodes/color-nodes.model';
 import { HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import nodeResize from 'cytoscape-node-resize';
+import { AuthService } from '../../Services/Auth/auth-services.service';
 (cytoscape as any).use(nodeResize);
 (cytoscape as any).use(dagre);
 
@@ -19,7 +20,7 @@ import nodeResize from 'cytoscape-node-resize';
   imports: [LucideAngularModule, CommonModule, FormsModule, HttpClientModule],
   templateUrl: './diagrams.component.html',
   styleUrls: ['./diagrams.component.scss'],
-  providers: [DiagramsService, ColornodesService]
+  providers: [DiagramsService, ColornodesService, AuthService]
 })
 export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly WorkflowIcon = Workflow;
@@ -72,13 +73,15 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     color_code: '',
     created_by: 2,
   };
+  user: any = {};
 
   diagramID: number | null = null;
 
   constructor(
     private DiagramService: DiagramsService,
     private ColorService: ColornodesService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private authServices: AuthService,
   ) {}
 
   ngOnInit() {
@@ -87,6 +90,10 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.diagramID) {
       this.fetchDiagramByID();
     }
+
+    this.authServices.getUser().subscribe((res) => {
+      this.user = res;
+    });
   }
 
   ngAfterViewInit() {
@@ -258,6 +265,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     this.diagramsField.json_data = JSON.stringify(json);
     this.diagramsField.sheet_url = this.sheetUrl || this.diagramsField.sheet_url;
     this.diagramsField.line_category = this.connectionStyle;
+    this.diagramsField.created_by = this.user.id;
+    this.diagramsField.s_bpartner_i_employee_id = this.user.id;
     if (!this.sheetUrl || this.mapping.dependency === null) {
       this.diagramsField.dependency = 'no';
       this.diagramsField.dependency_value = '';
@@ -406,8 +415,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       }
     });
-
-    // Add dependency edges (red)
     data.forEach(item => {
       if (!item.dep) return;
       const deps = item.dep.split(',').map((x: string) => x.trim()).filter(Boolean);
@@ -429,16 +436,10 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     });
-
-    // Ensure manual edges remain black
     this.cy.edges('[sourceTag = "manual"]').style({ 'line-color': 'black', 'target-arrow-color': 'black' });
-
     this.applyConnectionStyle();
     this.layout();
   }
-
-
-
   refreshFromSheet() {
     if (!this.diagramsField.sheet_url) {
       alert("No Google Sheet linked.");
@@ -446,11 +447,9 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.loadSheetFromUrl(this.diagramsField.sheet_url!, true);
   }
-
   loadSheetForRefresh() {
     this.refreshFromSheet();
   }
-
   fetchDiagramByID() {
     this.DiagramService.displayDiagramsbyID(this.diagramID!).subscribe((data) => {
       this.diagramsField = data;
@@ -458,7 +457,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         this.sheetUrl = this.diagramsField.sheet_url;
         this.loadSheetFromUrl(this.diagramsField.sheet_url, false);
       }
-
       if (this.diagramsField.json_data) {
         try {
           const json = JSON.parse(this.diagramsField.json_data);
