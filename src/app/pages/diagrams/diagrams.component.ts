@@ -51,7 +51,9 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   sheetUrl = '';
   headers: string[] = [];
   rows: any[] = [];
-  mapping = { id: 0, label: 1, dependency: null as number | null };
+  filterValues: string[] = [];
+  selectedFilterValue: string = '';
+  mapping = { id: 0, label: 1, dependency: null as number | null , filter: null as number | null };
 
   diagramsField: Diagrams = {
     name: '',
@@ -193,6 +195,23 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       position: { x: 200 + Math.random() * 150, y: 150 + Math.random() * 150 }
     });
   }
+  onFilterColumnChange() {
+    if (this.mapping.filter === null) {
+      this.filterValues = [];
+      this.selectedFilterValue = '';
+      return;
+    }
+
+    const colIndex = this.mapping.filter;
+
+    const values = this.rows
+      .map(row => this.parseSheetValue(row.c?.[colIndex]?.v))
+      .filter(v => v !== undefined && v !== null)
+      .map(v => v.toString().trim());
+
+    this.filterValues = [...new Set(values)]; // unique only
+    this.selectedFilterValue = this.filterValues[0] || '';
+  }
 
   applyConnectionStyle() {
     if (!this.cy) return;
@@ -273,6 +292,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.diagramsField.dependency = 'yes';
       this.diagramsField.dependency_value = this.headers[this.mapping.dependency] ?? '';
+    }
+    if (!this.sheetUrl || this.mapping.filter === null) {
+      // this.diagramsField.dependency = 'no';
+      // this.diagramsField.dependency_value = '';
+    } else {
+      // this.diagramsField.dependency = 'yes';
+      // this.diagramsField.dependency_value = this.headers[this.mapping.dependency] ?? '';
     }
     if (!this.diagramID) {
       this.DiagramService.storeDiagrams(this.diagramsField).subscribe(
@@ -365,81 +391,76 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
 
   generateNodesDynamic() {
     if (!this.cy) return;
-
-    // Remove only sheet-generated edges
+    this.cy.nodes('[sheetNode = "yes"]').remove();
     this.cy.edges('[sourceTag = "sheet"]').remove();
 
-    const selectedHeaders = this.headers
-      .filter((_, i) => this.selectedNodeDisplay[i])
-      .map(h => h.trim());
-    this.diagramsField.node_data = selectedHeaders.join(',');
+    const idCol = this.mapping.id;
+    const labelCol = this.mapping.label;
+    const depCol = this.mapping.dependency;
+    const filterCol = this.mapping.filter;
 
-    const data = this.rows.map((row: any, i: number) => {
-      const cells = row.c || [];
-      const id = (cells[this.mapping.id]?.v ?? `auto-${i}`).toString().trim();
-      const label = (cells[this.mapping.label]?.v ?? id).toString().trim();
-      const details: Record<string, any> = {};
+    for (const row of this.rows) {
+      const cells = row.c;
+      if (!cells) continue;
 
-      selectedHeaders.forEach(h => {
-        const colIndex = this.headers.indexOf(h);
-        details[h] = this.parseSheetValue(cells[colIndex]?.v);
+      // FILTER BLOCK
+      if (filterCol !== null) {
+        const filterValue = this.parseSheetValue(cells[filterCol]?.v)?.toString().trim() || "";
+        if (filterValue !== this.selectedFilterValue) {
+          continue;
+        }
+      }
+
+      const nodeId = this.parseSheetValue(cells[idCol]?.v)?.toString() || "";
+      const nodeLabel = this.parseSheetValue(cells[labelCol]?.v)?.toString() || "";
+
+      if (!nodeId) continue;
+
+      const details: any = {};
+      this.headers.forEach((header, index) => {
+        if (this.selectedNodeDisplay[index]) {
+          details[header] = this.parseSheetValue(cells[index]?.v);
+        }
       });
 
-      const dep = this.mapping.dependency !== null
-        ? (cells[this.mapping.dependency]?.v ?? '').toString().trim()
-        : '';
-
-      return { id, label, dep, details };
-    });
-
-    const idSet = new Set(data.map(x => x.id));
-
-    // Add or update sheet nodes
-    data.forEach((item, i) => {
-      const extra = Object.entries(item.details)
+      const extra = Object.entries(details)
         .map(([k, v]) => `${k}: ${v}`)
-        .join('\n');
-      const displayLabel = extra ? `${item.label}\n${extra}` : item.label;
+        .join("\n");
 
-      const existingNode = this.cy.$id(item.id);
-      if (existingNode.length > 0) {
-        existingNode.data('label', item.label);
-        existingNode.data('details', item.details);
-        existingNode.data('displayLabel', displayLabel);
-        existingNode.data('source', 'sheet');
-      } else {
-        this.cy.add({
-          group: 'nodes',
-          data: { id: item.id, label: item.label, displayLabel, details: item.details, source: 'sheet' },
-          position: { x: 200 + (i % 4) * 260, y: 120 + Math.floor(i / 4) * 150 }
+      const displayLabel = extra ? `${nodeLabel}\n${extra}` : nodeLabel;
+      this.cy.add({
+        group: "nodes",
+        data: {
+          id: nodeId,
+          label: nodeLabel,
+          displayLabel,
+          details,
+          sheetNode: "yes"
+        },
+        position: { x: Math.random() * 600, y: Math.random() * 600 }
+      });
+      if (depCol !== null) {
+        const depRaw = this.parseSheetValue(cells[depCol]?.v)?.toString() || "";
+        const dependencies = depRaw.split(",").map((v: string) => v.trim()).filter((v: string | any[]) => v.length > 0);
+
+        dependencies.forEach((dep: any) => {
+          this.cy.add({
+            group: "edges",
+            data: {
+              id: `edge-${dep}-${nodeId}-${Math.random()}`,
+              source: dep,
+              target: nodeId,
+              sourceTag: "sheet"
+            },
+            style: this.getConnectionStyle()
+          });
         });
       }
-    });
-    data.forEach(item => {
-      if (!item.dep) return;
-      const deps = item.dep.split(',').map((x: string) => x.trim()).filter(Boolean);
-      deps.forEach((dep: any) => {
-        if (!idSet.has(dep) && this.cy.$id(dep).length === 0) {
-          this.cy.add({
-            group: 'nodes',
-            classes: 'placeholder',
-            data: { id: dep, label: dep, displayLabel: dep, details: {}, source: 'sheet' }
-          });
-        }
-        const edgeId = `e-${dep}-${item.id}`;
-        if (this.cy.$id(edgeId).length === 0) {
-          this.cy.add({
-            group: 'edges',
-            data: { id: edgeId, source: dep, target: item.id, sourceTag: 'sheet' },
-            style: { 'line-color': 'red', 'target-arrow-color': 'red' }
-          });
-        }
-      });
-    });
-    this.cy.edges('[sourceTag = "manual"]').style({ 'line-color': 'black', 'target-arrow-color': 'black' });
-    this.applyConnectionStyle();
+    }
+
     this.layout();
   }
+
   refreshFromSheet() {
     if (!this.diagramsField.sheet_url) {
       alert("No Google Sheet linked.");

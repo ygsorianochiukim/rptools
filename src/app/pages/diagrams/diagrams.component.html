@@ -29,10 +29,6 @@
       <lucide-icon [img]="SelectNodeIcon"></lucide-icon>Map
     </button>
 
-    <!-- <button (click)="colorNodes()" class="bg-primary" title="Color">
-      <lucide-icon [img]="PaletteIcon"></lucide-icon> Color Nodes
-    </button> -->
-
     <button (click)="refreshFromSheet()" class="bg-primary" title="Re-layout">
       <lucide-icon [img]="RefreshIcon"></lucide-icon>Refresh
     </button>
@@ -82,7 +78,6 @@
   </div>
 </div>
 
-<!-- IMPORT SHEET MODAL -->
 <div *ngIf="showImportModal" class="modal">
   <div class="modal-content">
     <h3>Import Google Sheet</h3>
@@ -97,7 +92,6 @@
   </div>
 </div>
 
-<!-- MAPPING MODAL -->
 <div *ngIf="showMappingModal" class="modal">
   <div class="modal-content">
     <header class="font-semibold text-2xl">Column Mapper</header>
@@ -138,10 +132,35 @@
         </label>
       </div>
 
-      <div *ngIf="mapping.dependency !== null">
+      <div *ngIf="mapping.dependency !== null" class="flexcol !items-start">
         <label>Dependency column (comma separated values expected)</label>
-        <select [(ngModel)]="mapping.dependency" class="input">
+        <select [(ngModel)]="mapping.dependency" class="input w-full">
           <option *ngFor="let h of headers; let i = index" [ngValue]="i">{{ h || 'Column ' + (i+1) }}</option>
+        </select>
+      </div>
+
+      <label>Add Filter?</label>
+      <div class="row">
+        <label class="inline">
+          <input type="radio" name="hasFil" [checked]="mapping.filter === null" (click)="mapping.filter = null"/>
+          No
+        </label>
+        <label class="inline">
+          <input type="radio" name="hasFil" [checked]="mapping.filter !== null" (click)="mapping.filter =  (headers.length > 0 ? 0 : null)"/>
+          Yes
+        </label>
+      </div>
+      <div *ngIf="mapping.filter !== null" class="flexcol !items-start">
+        <label>Select Filter Column</label>
+        <select [(ngModel)]="mapping.filter" class="input w-full" (change)="onFilterColumnChange()">
+          <option *ngFor="let h of headers; let i = index" [ngValue]="i">{{ h || 'Column ' + (i+1) }}</option>
+        </select>
+      </div>
+
+      <div *ngIf="filterValues.length > 0" class="flexcol !items-start mt-2">
+        <label>Select Filter Value</label>
+        <select [(ngModel)]="selectedFilterValue" class="input w-full">
+          <option *ngFor="let val of filterValues" [value]="val">{{ val }}</option>
         </select>
       </div>
       <header class="font-semibold text-lg mt-3 mb-1">Select Columns to Display</header>
