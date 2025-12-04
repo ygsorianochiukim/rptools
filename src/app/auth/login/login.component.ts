@@ -38,12 +38,16 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     this.displayUsersList();
-    this.initializeGoogleLogin();
+    this.waitForGoogle();
   }
-
-  // -----------------------
-  // NORMAL LOGIN
-  // -----------------------
+  waitForGoogle() {
+    const check = setInterval(() => {
+      if (typeof google !== 'undefined' && google.accounts?.id) {
+        clearInterval(check);
+        this.initializeGoogleLogin();
+      }
+    }, 100);
+  }
   login() {
     this.loading = true;
     this.errorMessage = '';
