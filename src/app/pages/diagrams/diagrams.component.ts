@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Component, ElementRef, ViewChild, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { LucideAngularModule, Workflow, Spline, GitBranchPlus, Save, Shapes, RouteOff, Palette, BetweenHorizontalStart, SquareMousePointer, RefreshCcw } from 'lucide-angular';
+import { LucideAngularModule, Workflow, Spline, GitBranchPlus, Save, Shapes, RouteOff, Palette, BetweenHorizontalStart, SquareMousePointer, RefreshCcw, Minus, Type, Slash, AlignCenter, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-angular';
 import { DiagramsService } from '../../Services/diagrams.service';
 import { ColornodesService } from '../../Services/ColorNodes/colornodes.service';
 import { Diagrams } from '../../Models/Diagrams/diagrams.model';
@@ -33,16 +33,23 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly UploadSheetIcon = BetweenHorizontalStart;
   readonly SelectNodeIcon = SquareMousePointer;
   readonly RefreshIcon = RefreshCcw;
-
+  readonly MinusIcon = Minus;
+  readonly TypeIcon = Type;
+  readonly SlashIcon = Slash;
+  readonly AlignCenterIcon = AlignCenter;
+  readonly AlignHorizontalIcon = AlignHorizontalJustifyCenter;
+  readonly AlignVerticalIcon = AlignVerticalJustifyCenter;
+  
   @ViewChild('cyContainer') cyContainer!: ElementRef;
   jsonLoaded = false;
   cy: any;
   nodeIndex = 1;
   connectMode = false;
+  lineMode = false;
+  lineStartPos: { x: number; y: number } | null = null;
   selectedNode: any = null;
   connectionStyle: 'straight' | 'curve' | 'angle' = 'straight';
   pendingSource: string | null = null;
-
   selectedNodeDisplay: boolean[] = [];
   showImportModal = false;
   ShowSavingModal = false;
@@ -72,7 +79,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     s_bpartner_i_employee_id: 2,
     created_by: 2
   };
-
   ColorNodeFields: ColorNodes = {
     diagram_id: null,
     label: '',
@@ -81,32 +87,29 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     created_by: 2,
   };
   user: any = {};
-
   diagramID: number | null = null;
-
+  
   constructor(
     private DiagramService: DiagramsService,
     private ColorService: ColornodesService,
     private route: ActivatedRoute,
     private authServices: AuthService,
   ) {}
-
+  
   ngOnInit() {
     this.diagramID = this.route.snapshot.params['id'];
-
     if (this.diagramID) {
       this.fetchDiagramByID();
     }
-
     this.authServices.getUser().subscribe((res) => {
       this.user = res;
     });
   }
-
+  
   ngAfterViewInit() {
     this.initCytoscape();
   }
-
+  
   initCytoscape() {
     this.cy = cytoscape({
       container: this.cyContainer.nativeElement,
@@ -129,7 +132,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
             'font-size': 12
           }
         },
-
         {
           selector: 'edge',
           style: {
@@ -154,12 +156,71 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
             'background-color': '#f48fb1',
             'border-color': '#c2185b'
           }
+        },
+        {
+          selector: 'node[nodeType = "label"]',
+          style: {
+            'background-color': 'transparent',
+            'border-width': 0,
+            'font-size': 14,
+            'text-valign': 'center',
+            'text-halign': 'center'
+          }
+        },
+        {
+          selector: 'node[nodeType = "lineAnchor"]',
+          style: {
+            'width': 5,
+            'height': 5,
+            'background-color': '#333333',
+            'border-width': 0,
+            'opacity': 0.5
+          }
+        },
+        {
+          selector: 'edge[lineType = "drawn"]',
+          style: {
+            'curve-style': 'straight',
+            'line-color': '#333333',
+            'width': 1,
+            'target-arrow-shape': 'none'
+          }
         }
       ]
     });
+    
     this.cy.on('tap', 'node', (evt: any) => {
       const node = evt.target;
       const nodeId = node.id();
+      
+      // Handle line drawing mode
+      if (this.lineMode) {
+        const pos = node.position();
+        if (!this.lineStartPos) {
+          this.lineStartPos = { x: pos.x, y: pos.y };
+        } else {
+          let endPos = { x: pos.x, y: pos.y };
+          
+          // Check if Shift key is pressed for straight lines
+          if (evt.originalEvent && evt.originalEvent.shiftKey) {
+            const dx = Math.abs(endPos.x - this.lineStartPos.x);
+            const dy = Math.abs(endPos.y - this.lineStartPos.y);
+            
+            // Snap to horizontal or vertical
+            if (dx > dy) {
+              endPos.y = this.lineStartPos.y;
+            } else {
+              endPos.x = this.lineStartPos.x;
+            }
+          }
+          
+          this.createLine(this.lineStartPos, endPos);
+          this.lineStartPos = null;
+          this.lineMode = false;
+        }
+        return;
+      }
+      
       if (this.connectMode) {
         if (!this.pendingSource) {
           this.pendingSource = nodeId;
@@ -170,6 +231,23 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         return;
       }
+      
+      // Special handling for label nodes
+      if (node.data('nodeType') === 'label') {
+        const newLabel = prompt('Edit Text:', node.data('label'));
+        if (newLabel !== null) {
+          node.data('label', newLabel);
+          node.data('displayLabel', newLabel);
+        }
+        return;
+      }
+      
+      // Handle line anchor nodes - allow repositioning
+      if (node.data('nodeType') === 'lineAnchor') {
+        // You can just drag these to reposition the line
+        return;
+      }
+      
       const newLabel = prompt('Edit Label:', node.data('label'));
       if (newLabel !== null) {
         const details = node.data('details') || {};
@@ -180,81 +258,287 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         node.data('displayLabel', extra ? `${newLabel}\n${extra}` : newLabel);
       }
     });
+    
+    // Add tap event for background (canvas) clicks for line drawing
+    this.cy.on('tap', (evt: any) => {
+      if (evt.target === this.cy && this.lineMode) {
+        const pos = evt.position;
+        if (!this.lineStartPos) {
+          this.lineStartPos = { x: pos.x, y: pos.y };
+        } else {
+          let endPos = { x: pos.x, y: pos.y };
+          
+          // Check if Shift key is pressed for straight lines
+          if (evt.originalEvent && evt.originalEvent.shiftKey) {
+            const dx = Math.abs(endPos.x - this.lineStartPos.x);
+            const dy = Math.abs(endPos.y - this.lineStartPos.y);
+            
+            // Snap to horizontal or vertical based on which difference is larger
+            if (dx > dy) {
+              // Horizontal line
+              endPos.y = this.lineStartPos.y;
+            } else {
+              // Vertical line
+              endPos.x = this.lineStartPos.x;
+            }
+          }
+          
+          this.createLine(this.lineStartPos, endPos);
+          this.lineStartPos = null;
+          this.lineMode = false;
+        }
+      }
+    });
+    
+    // Add drag event listener to constrain line anchor movement
+    this.cy.on('drag', 'node[nodeType = "lineAnchor"]', (evt: any) => {
+      const node = evt.target;
+      const linkedAnchorId = node.data('linkedAnchor');
+      
+      if (evt.originalEvent && evt.originalEvent.shiftKey && linkedAnchorId) {
+        const linkedAnchor = this.cy.$id(linkedAnchorId);
+        if (linkedAnchor.length > 0) {
+          const linkedPos = linkedAnchor.position();
+          const currentPos = node.position();
+          
+          const dx = Math.abs(currentPos.x - linkedPos.x);
+          const dy = Math.abs(currentPos.y - linkedPos.y);
+          
+          // Constrain to horizontal or vertical
+          if (dx > dy) {
+            // Keep horizontal
+            node.position({ x: currentPos.x, y: linkedPos.y });
+          } else {
+            // Keep vertical
+            node.position({ x: linkedPos.x, y: currentPos.y });
+          }
+        }
+      }
+    });
+    
     this.cy.on('cxttap', 'node', (evt: any) => {
       const node = evt.target;
+      
+      // If it's a line anchor, delete the anchor and its connected edge
+      if (node.data('nodeType') === 'lineAnchor') {
+        const connectedEdges = node.connectedEdges();
+        this.cy.remove(connectedEdges);
+        this.cy.remove(node);
+        return;
+      }
+      
       if (confirm(`Delete node "${node.data('label')}"?`)) {
         this.cy.remove(node);
       }
     });
+    
     this.cy.on('cxttap', 'edge', (evt: any) => {
       const edge = evt.target;
       if (confirm('Delete connection?')) {
         this.cy.remove(edge);
       }
     });
-     this.cy.on('resize', 'node', (evt: any) => {
+    
+    this.cy.on('resize', 'node', (evt: any) => {
       const node = evt.target;
       node.data('width', node.width());
       node.data('height', node.height());
       console.log(`Resized ${node.data('id')} to ${node.width()}x${node.height()}`);
     });
   }
+  
   addNode() {
     const id = 'n' + this.nodeIndex++;
     const label = 'New Node';
     this.cy.add({
       group: 'nodes',
-      data: { id, label, displayLabel: label, details: {},sheetNode: "no"  },
+      data: { id, label, displayLabel: label, details: {}, sheetNode: "no" },
       position: { x: 200 + Math.random() * 150, y: 150 + Math.random() * 150 }
     });
   }
+  
+  enableLineMode() {
+    this.lineMode = true;
+    this.connectMode = false;
+    this.selectedNode = null;
+    this.pendingSource = null;
+    this.lineStartPos = null;
+    alert('Line Mode: Click to place start point, then click for end point. Hold Shift for horizontal/vertical lines.');
+  }
+  
+  createLine(start: { x: number; y: number }, end: { x: number; y: number }) {
+    // Create two invisible anchor nodes at the start and end points
+    const startNodeId = 'line-start-' + Date.now();
+    const endNodeId = 'line-end-' + Date.now();
+    const edgeId = 'line-edge-' + Date.now();
+    
+    // Add invisible anchor nodes - make them independent
+    this.cy.add([
+      {
+        group: 'nodes',
+        data: {
+          id: startNodeId,
+          label: '',
+          displayLabel: '',
+          nodeType: 'lineAnchor',
+          sheetNode: 'no',
+          linkedAnchor: endNodeId,
+          linkedEdge: edgeId
+        },
+        position: { x: start.x, y: start.y },
+        locked: false,
+        grabbable: true
+      },
+      {
+        group: 'nodes',
+        data: {
+          id: endNodeId,
+          label: '',
+          displayLabel: '',
+          nodeType: 'lineAnchor',
+          sheetNode: 'no',
+          linkedAnchor: startNodeId,
+          linkedEdge: edgeId
+        },
+        position: { x: end.x, y: end.y },
+        locked: false,
+        grabbable: true
+      }
+    ]);
+    
+    // Create edge connecting the two anchor nodes
+    this.cy.add({
+      group: 'edges',
+      data: {
+        id: edgeId,
+        source: startNodeId,
+        target: endNodeId,
+        lineType: 'drawn'
+      },
+      selectable: false
+    });
+  }
+  
+  addLabel() {
+    const id = 'label-' + Date.now();
+    const labelText = prompt('Enter label text:', 'Label') || 'Label';
+    
+    this.cy.add({
+      group: 'nodes',
+      data: {
+        id,
+        label: labelText,
+        displayLabel: labelText,
+        nodeType: 'label',
+        details: {},
+        sheetNode: 'no'
+      },
+      position: { x: 300 + Math.random() * 150, y: 200 + Math.random() * 150 }
+    });
+  }
+  
+  snapToCenter() {
+    const selectedNodes = this.cy.$(':selected');
+    
+    if (selectedNodes.length === 0) {
+      alert('Please select one or more nodes first (click to select, Ctrl+click for multiple)');
+      return;
+    }
+    
+    // Get canvas center
+    const extent = this.cy.extent();
+    const centerX = (extent.x1 + extent.x2) / 2;
+    const centerY = (extent.y1 + extent.y2) / 2;
+    
+    // Move all selected nodes to center
+    selectedNodes.forEach((node: any) => {
+      node.position({ x: centerX, y: centerY });
+    });
+  }
+  
+  snapHorizontal() {
+    const selectedNodes = this.cy.$(':selected');
+    
+    if (selectedNodes.length < 2) {
+      alert('Please select at least 2 nodes first (Ctrl+click for multiple)');
+      return;
+    }
+    
+    // Calculate average Y position
+    let totalY = 0;
+    selectedNodes.forEach((node: any) => {
+      totalY += node.position().y;
+    });
+    const avgY = totalY / selectedNodes.length;
+    
+    // Align all nodes to the same Y (horizontal alignment)
+    selectedNodes.forEach((node: any) => {
+      const pos = node.position();
+      node.position({ x: pos.x, y: avgY });
+    });
+  }
+  
+  snapVertical() {
+    const selectedNodes = this.cy.$(':selected');
+    
+    if (selectedNodes.length < 2) {
+      alert('Please select at least 2 nodes first (Ctrl+click for multiple)');
+      return;
+    }
+    
+    // Calculate average X position
+    let totalX = 0;
+    selectedNodes.forEach((node: any) => {
+      totalX += node.position().x;
+    });
+    const avgX = totalX / selectedNodes.length;
+    
+    // Align all nodes to the same X (vertical alignment)
+    selectedNodes.forEach((node: any) => {
+      const pos = node.position();
+      node.position({ x: avgX, y: pos.y });
+    });
+  }
+  
   onFilterColumnChange() {
     if (this.mapping.filter === null) {
       this.filterValues = [];
       this.selectedFilterValue = '';
       return;
     }
-
     const colIndex = this.mapping.filter;
-
     const values = this.rows
       .map(row => this.parseSheetValue(row.c?.[colIndex]?.v))
       .filter(v => v !== undefined && v !== null)
       .map(v => v.toString().trim());
-
-    this.filterValues = [...new Set(values)]; // unique only
+    this.filterValues = [...new Set(values)];
     this.selectedFilterValue = this.filterValues[0] || '';
   }
-
+  
   applyConnectionStyle() {
     if (!this.cy) return;
-
     switch (this.connectionStyle) {
       case 'straight':
         this.cy.edges().style({ 'curve-style': 'straight' });
         break;
-
       case 'curve':
         this.cy.edges().style({ 'curve-style': 'bezier', 'control-point-step-size': 40 });
         break;
-
       case 'angle':
         this.cy.edges().style({ 'curve-style': 'taxi', 'taxi-direction': 'auto', 'taxi-turn': 20 });
         break;
     }
-
     this.cy.layout({ name: 'preset' }).run();
   }
-
+  
   getConnectionStyle() {
     if (this.connectionStyle === 'straight') return { 'curve-style': 'straight' };
     if (this.connectionStyle === 'curve') return { 'curve-style': 'bezier', 'control-point-step-size': 40 };
     return { 'curve-style': 'taxi', 'taxi-direction': 'auto', 'taxi-turn': 20 };
   }
-
+  
   addConnection(source: string, target: string) {
     const id = `edge-${source}-${target}`;
-
     if (this.cy.$id(id).length === 0) {
       this.cy.add({
         group: "edges",
@@ -263,13 +547,15 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     }
   }
-
+  
   enableConnect() {
     this.connectMode = true;
+    this.lineMode = false;
     this.selectedNode = null;
     this.pendingSource = null;
+    this.lineStartPos = null;
   }
-
+  
   layout() {
     try {
       this.cy.layout({ name: 'dagre', rankDir: 'TB', nodeSep: 50 }).run();
@@ -277,11 +563,11 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       console.warn('Layout error', err);
     }
   }
-
+  
   saveLocal() {
     this.ShowSavingModal = true;
   }
-
+  
   saveDiagramsInformation() {
     if (!this.cy) return;
     this.applyConnectionStyle();
@@ -328,13 +614,16 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       );
     }
   }
+  
   clearLocal() {
     localStorage.removeItem('diagram');
     alert('Local Storage Cleared');
   }
+  
   colorNodes() {
     this.ShowColorModal = true;
   }
+  
   saveColorDiagramsInformation() {
     this.ColorNodeFields.diagram_id = this.diagramID;
     this.ColorNodeFields.color_key = this.ColorNodeFields.color_code;
@@ -342,79 +631,201 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       alert("Color Saved");
     }, () => alert('Failed to save color'));
   }
+  
   normalizeDate(value: any): Date | null {
     if (!value) return null;
-
-    // If Google Sheets serial (number)
     if (typeof value === 'number') {
       const epoch = new Date(1899, 11, 30);
       return new Date(epoch.getTime() + value * 24 * 60 * 60 * 1000);
     }
-
-    // Direct parse first
     let d = new Date(value);
     if (!isNaN(d.getTime())) return d;
-
-    // Handle DD/MM/YYYY or MM/DD/YYYY safely by swapping if needed
     const parts = value.split('/');
     if (parts.length === 3) {
       const [a, b, c] = parts;
       let month = parseInt(a);
       let day = parseInt(b);
-
       if (month > 12) { 
-        // swap
         month = parseInt(b);
         day = parseInt(a);
       }
-
       return new Date(`${month}/${day}/${c}`);
     }
-
     return null;
   }
+  
   autoLayoutByTargetEnd() {
     if (!this.cy) return;
+    
+    // Remove existing month header nodes and red lines
+    this.cy.nodes('[nodeType = "monthHeader"]').remove();
+    this.cy.nodes('[nodeType = "redLine"]').remove();
+    
     const groups: any = {};
+    let farthestDate: Date | null = null;
+    let farthestKey: string | null = null;
 
+    // Group nodes by Target End month/year and track the farthest date
     this.cy.nodes().forEach((node: any) => {
       const details = node.data("details") || {};
       const rawEnd = details["Target End"];
 
       const parsed = this.normalizeDate(rawEnd);
 
+      // Group by month/year
       const key = parsed
-        ? parsed.toISOString().split("T")[0]
+        ? `${parsed.getFullYear()}-${(parsed.getMonth() + 1).toString().padStart(2, '0')}`
         : "Unknown";
 
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(node);
+      if (!groups[key]) {
+        groups[key] = {
+          nodes: [],
+          date: parsed
+        };
+      }
+      groups[key].nodes.push(node);
+      
+      // Track the farthest date
+      if (parsed && (!farthestDate || parsed > farthestDate)) {
+        farthestDate = parsed;
+        farthestKey = key;
+      }
     });
+
+    // Sort keys chronologically
     const sortedKeys = Object.keys(groups).sort((a, b) => {
-      const da = new Date(a);
-      const db = new Date(b);
-      return da.getTime() - db.getTime();
+      if (a === "Unknown") return 1;
+      if (b === "Unknown") return -1;
+      return a.localeCompare(b);
     });
 
-    // --- Step 3: Layout rows ---
-    let baseY = 100;
-    const rowSpacing = 250;
-    const colSpacing = 280;
+    // Layout in vertical columns by month/year
+    let baseX = 150;
+    const colSpacing = 350;  // Horizontal spacing between month groups
+    const rowSpacing = 180;  // Vertical spacing between nodes in same month
+    const headerOffset = 80; // Space for month header
 
-    sortedKeys.forEach((key, rowIndex) => {
-      const rowNodes = groups[key];
-      let xStart = 150;
-      const y = baseY + rowIndex * rowSpacing;
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
 
-      rowNodes.forEach((node: any, i: number) => {
+    let farthestX = baseX; // Track the farthest column X position
+    const farthestNodes: any[] = []; // Store nodes in the farthest column
+
+    sortedKeys.forEach((key, colIndex) => {
+      const group = groups[key];
+      const colNodes = group.nodes;
+      const x = baseX + colIndex * colSpacing;
+      
+      // Update farthest X position and track farthest nodes
+      if (x > farthestX) {
+        farthestX = x;
+      }
+      
+      // Store nodes if this is the farthest date column
+      if (key === farthestKey) {
+        farthestNodes.push(...colNodes);
+      }
+      
+      // Create month header label
+      let headerLabel = "Unknown";
+      if (group.date) {
+        const monthName = monthNames[group.date.getMonth()];
+        const year = group.date.getFullYear();
+        headerLabel = `${monthName} ${year} target end`;
+      }
+
+      // Add header node
+      this.cy.add({
+        group: 'nodes',
+        data: {
+          id: `header-${key}`,
+          label: headerLabel,
+          displayLabel: headerLabel,
+          nodeType: 'monthHeader'
+        },
+        position: { x: x, y: 50 },
+        style: {
+          'background-color': '#ffffff',
+          'border-color': '#333333',
+          'border-width': 0,
+          'font-size': 14,
+          'font-weight': 'bold',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'width': 'label',
+          'height': 'label',
+          'padding': '10px'
+        },
+        locked: true,
+        grabbable: false
+      });
+
+      // Position nodes vertically in this column
+      let yStart = 50 + headerOffset;
+      colNodes.forEach((node: any, i: number) => {
         node.position({
-          x: xStart + i * colSpacing,
-          y: y
+          x: x,
+          y: yStart + i * rowSpacing
         });
       });
     });
 
-    // --- Step 4: Animate & Fit ---
+    // Add red vertical line at the farthest target end column
+    if (sortedKeys.length > 0) {
+      // Calculate the height based on nodes in the last column
+      const lastKey = sortedKeys[sortedKeys.length - 1];
+      const lastGroup = groups[lastKey];
+      const numNodes = lastGroup.nodes.length;
+      const lineHeight = (50 + headerOffset) + (numNodes * rowSpacing) + 100; // Extra padding
+      
+      const lineId = 'redline-' + Date.now();
+      
+      this.cy.add({
+        group: 'nodes',
+        data: {
+          id: lineId,
+          label: '',
+          displayLabel: '',
+          nodeType: 'redLine',
+          sheetNode: 'no'
+        },
+        position: { x: farthestX, y: lineHeight / 2 },
+        style: {
+          'shape': 'rectangle',
+          'width': 3,
+          'height': lineHeight,
+          'background-color': '#ff0000',
+          'border-width': 0
+        },
+        locked: true,
+        grabbable: false
+      });
+    }
+    
+    // Color all edges: blue for normal nodes, keep original for farthest nodes
+    const farthestNodeIds = new Set(farthestNodes.map((n: any) => n.id()));
+    
+    this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
+      const targetId = edge.data('target');
+      const sourceId = edge.data('source');
+      
+      // If the target node is in the farthest column, keep red, otherwise make blue
+      if (farthestNodeIds.has(targetId)) {
+        edge.style({
+          'line-color': 'red',
+          'target-arrow-color': 'red'
+        });
+      } else {
+        edge.style({
+          'line-color': '#64b5f6',
+          'target-arrow-color': '#1976d2'
+        });
+      }
+    });
+
+    // Animate & Fit
     this.cy.animate({
       fit: { padding: 50 },
       duration: 600
@@ -426,9 +837,11 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     const match = url.match(/\/d\/(.*?)\//);
     return match ? match[1] : null;
   }
+  
   openSheetImport() {
     this.showImportModal = true;
   }
+  
   loadSheet() {
     const sheetId = this.extractSheetID(this.sheetUrl);
     if (!sheetId) {
@@ -437,6 +850,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.loadSheetFromUrl(this.sheetUrl, true);
   }
+  
   loadSheetFromUrl(url: string, generate: boolean = false) {
     const sheetId = this.extractSheetID(url);
     if (!sheetId) {
@@ -467,6 +881,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         alert('Failed to load sheet.');
       });
   }
+  
   applySavedMapping() {
     if (!this.headers.length) return;
     this.mapping.id = 0;
@@ -478,23 +893,20 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mapping.dependency = null;
     }
   }
-
+  
   parseSheetValue(value: any) {
     if (typeof value === 'number') {
-      // Google Sheets serial to JS Date
-      const epoch = new Date(1899, 11, 30); // Dec 30, 1899
+      const epoch = new Date(1899, 11, 30);
       const milliseconds = Math.floor(value) * 24 * 60 * 60 * 1000;
       const date = new Date(epoch.getTime() + milliseconds);
-
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const day = date.getDate().toString().padStart(2, '0');
       const year = date.getFullYear();
-
       return `${month}/${day}/${year}`;
     }
     return value?.toString() ?? '';
   }
-
+  
   generateNodesDynamic() {
     if (!this.cy) return;
     this.cy.nodes().filter((n: any) => n.data('sheetNode') === 'yes').remove();
@@ -507,7 +919,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     const labelCol = this.mapping.label;
     const depCol = this.mapping.dependency;
     const filterCol = this.mapping.filter;
-    
     for (const row of this.rows) {
       const cells = row.c;
       if (!cells) continue;
@@ -517,33 +928,26 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
           continue;
         }
       }
-
       const nodeId = this.parseSheetValue(cells[idCol]?.v)?.toString() || "";
       const nodeLabel = this.parseSheetValue(cells[labelCol]?.v)?.toString() || "";
-
       if (!nodeId) continue;
-
       const details: any = {};
       this.headers.forEach((header, index) => {
         if (this.selectedNodeDisplay[index]) {
           details[header] = this.parseSheetValue(cells[index]?.v);
         }
       });
-      let nodeColor = "#E3E3E3"; // default
-
+      let nodeColor = "#E3E3E3";
       const statusValue =
         details["Status"] ??
         details["status"] ??
         details["STATUS"];
-
       if (statusValue && this.statusColors[statusValue]) {
         nodeColor = this.statusColors[statusValue];
       }
-
       const extra = Object.entries(details)
         .map(([k, v]) => `${k}: ${v}`)
         .join("\n");
-
       const displayLabel = extra ? `${nodeLabel}\n${extra}` : nodeLabel;
       this.cy.add({
         group: "nodes",
@@ -563,7 +967,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       if (depCol !== null) {
         const depRaw = this.parseSheetValue(cells[depCol]?.v)?.toString() || "";
         const dependencies = depRaw.split(",").map((v: string) => v.trim()).filter((v: string | any[]) => v.length > 0);
-
         dependencies.forEach((dep: any) => {
           this.cy.add({
             group: "edges",
@@ -578,17 +981,144 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       }
     }
-
     this.layout();
   }
-
+  
   refreshFromSheet() {
     if (!this.diagramsField.sheet_url) {
       alert("No Google Sheet linked.");
       return;
     }
-    this.loadSheetFromUrl(this.diagramsField.sheet_url!, true);
+    
+    const sheetId = this.extractSheetID(this.diagramsField.sheet_url);
+    if (!sheetId) {
+      alert('Invalid Google Sheet URL');
+      return;
+    }
+    
+    fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        this.headers = json.table.cols.map((c: any) => c.label || 'Column');
+        this.rows = json.table.rows || [];
+        
+        // Update existing nodes with new data from sheet
+        this.updateNodesFromSheet();
+        
+        alert('Data refreshed from sheet!');
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to refresh sheet data.');
+      });
   }
+  
+  updateNodesFromSheet() {
+    if (!this.cy || !this.rows.length) return;
+    
+    const idCol = this.mapping.id;
+    const labelCol = this.mapping.label;
+    const filterCol = this.mapping.filter;
+    
+    // Get all existing sheet nodes
+    const existingSheetNodes = this.cy.nodes('[sheetNode = "yes"]');
+    
+    // Create a map of updated data from sheet
+    const updatedDataMap = new Map();
+    
+    for (const row of this.rows) {
+      const cells = row.c;
+      if (!cells) continue;
+      
+      // Apply filter if exists
+      if (filterCol !== null) {
+        const filterValue = this.parseSheetValue(cells[filterCol]?.v)?.toString().trim() || "";
+        if (filterValue !== this.selectedFilterValue) {
+          continue;
+        }
+      }
+      
+      const nodeId = this.parseSheetValue(cells[idCol]?.v)?.toString() || "";
+      if (!nodeId) continue;
+      
+      const nodeLabel = this.parseSheetValue(cells[labelCol]?.v)?.toString() || "";
+      
+      // Build details object
+      const details: any = {};
+      this.headers.forEach((header, index) => {
+        if (this.selectedNodeDisplay[index]) {
+          details[header] = this.parseSheetValue(cells[index]?.v);
+        }
+      });
+      
+      // Determine color based on status
+      let nodeColor = "#E3E3E3";
+      const statusValue = details["Status"] ?? details["status"] ?? details["STATUS"];
+      if (statusValue && this.statusColors[statusValue]) {
+        nodeColor = this.statusColors[statusValue];
+      }
+      
+      updatedDataMap.set(nodeId, {
+        label: nodeLabel,
+        details: details,
+        color: nodeColor
+      });
+    }
+    
+    // Update existing nodes with new data
+    existingSheetNodes.forEach((node: any) => {
+      const nodeId = node.id();
+      const updatedData = updatedDataMap.get(nodeId);
+      
+      if (updatedData) {
+        // Update node data
+        node.data('label', updatedData.label);
+        node.data('details', updatedData.details);
+        
+        // Update display label
+        const extra = Object.entries(updatedData.details)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("\n");
+        const displayLabel = extra ? `${updatedData.label}\n${extra}` : updatedData.label;
+        node.data('displayLabel', displayLabel);
+        
+        // Update color
+        node.style('background-color', updatedData.color);
+        
+        // Mark as updated
+        updatedDataMap.delete(nodeId);
+      }
+    });
+    
+    // Add any new nodes that don't exist yet (optional)
+    // If you want to add new nodes from the sheet, uncomment this section:
+    /*
+    updatedDataMap.forEach((data, nodeId) => {
+      const extra = Object.entries(data.details)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\n");
+      const displayLabel = extra ? `${data.label}\n${extra}` : data.label;
+      
+      this.cy.add({
+        group: "nodes",
+        data: {
+          id: nodeId,
+          label: data.label,
+          displayLabel: displayLabel,
+          details: data.details,
+          sheetNode: "yes"
+        },
+        style: {
+          "background-color": data.color,
+          "border-color": "#1a237e"
+        },
+        position: { x: Math.random() * 600, y: Math.random() * 600 }
+      });
+    });
+    */
+  }
+  
   hasSavedMapping() {
     return (
       this.diagramsField.node_data &&
@@ -596,9 +1126,11 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       this.diagramsField.dependency_value !== undefined
     );
   }
+  
   loadSheetForRefresh() {
     this.refreshFromSheet();
   }
+  
   fetchDiagramByID() {
     this.DiagramService.displayDiagramsbyID(this.diagramID!).subscribe((data) => {
       this.diagramsField = data;
@@ -609,10 +1141,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!this.jsonLoaded && this.diagramsField.json_data) {
         try {
           const json = JSON.parse(this.diagramsField.json_data);
-
           this.cy.json(json);
           this.jsonLoaded = true;
-
           setTimeout(() => {
             this.cy.nodes().forEach((node: any) => node.trigger('resize'));
             this.cy.edges().forEach((edge: any) => edge.trigger('position'));
@@ -624,15 +1154,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
           console.warn('Invalid saved json_data');
         }
       }
-
       this.restoreMappingFromSavedNodeData();
     }, (err) => {
       console.error(err);
       alert('Failed to fetch diagram');
     });
   }
-
-
+  
   restoreMappingFromSavedNodeData() {
     if (!this.diagramsField.node_data) return;
     if (!this.headers || this.headers.length === 0) {
@@ -641,7 +1169,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     const nodeList = this.diagramsField.node_data.split(',').map(x => x.trim()).filter(Boolean);
     this.selectedNodeDisplay = this.headers.map(h => nodeList.includes(h));
   }
-
+  
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
   }

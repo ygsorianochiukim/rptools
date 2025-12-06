@@ -114,4 +114,7 @@ export class DiagramslistComponent implements OnInit {
   newDiagram() {
     this.router.navigate(['/home', 'createDiagram']);
   }
+  newGantt() {
+    this.router.navigate(['/home', 'ganttChart']);
+  }
 }
