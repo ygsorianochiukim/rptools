@@ -1,0 +1,20 @@
+#ganttContainer {
+  width: 100%;
+  height: 600px;       /* Critical: gives the gantt room */
+  overflow-x: auto;     /* enables scrolling */
+  overflow-y: hidden;
+  border: 1px solid #ddd;
+}
+
+/* Prevent timeline from shifting down */
+#ganttContainer svg {
+  width: 100%;
+  height: 100%;
+  display: block;      /* Critical: removes bottom gap */
+}
+
+/* Prevent SVG from collapsing inside flex parents */
+:host {
+  display: block;
+  width: 100%;
+}

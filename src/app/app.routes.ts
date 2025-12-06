@@ -8,6 +8,7 @@ import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ProfileComponent } from './pages/profile/profile.component';
 import { AuthGuard } from './guard/auth.guard';
+import { GanttComponent } from './pages/diagrams/gantt/gantt.component';
 
 export const routes: Routes = [
     {path:'' , redirectTo:'login' , pathMatch:'full'},
@@ -23,6 +24,7 @@ export const routes: Routes = [
             {path: 'documents', component: DocumentsComponent},
             {path: 'notes', component: DiagramslistComponent},
             {path: 'profile/:id', component: ProfileComponent},
+            {path: 'ganttChart', component: GanttComponent},
         ]
     }
 ];

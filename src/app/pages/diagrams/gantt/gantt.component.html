@@ -1,0 +1,18 @@
+<div class="p-3">
+  <h2 class="text-xl mb-3">Google Sheet → Gantt Chart</h2>
+
+  <input 
+    type="text"
+    [(ngModel)]="googleSheetLink"
+    placeholder="Paste Google Sheet link here..."
+    class="border p-2 w-full mb-3"
+  />
+
+  <button 
+    (click)="loadSheet()" 
+    class="bg-blue-600 text-white px-4 py-2 rounded">
+    Load Gantt Chart
+  </button>
+
+  <div #ganttContainer id="ganttContainer"></div>
+</div>

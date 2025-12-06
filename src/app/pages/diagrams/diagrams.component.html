@@ -13,9 +13,9 @@
       <lucide-icon [img]="GitBranchPlusIcon"></lucide-icon>Connect
     </button>
 
-    <button (click)="autoLayoutByTargetEnd()" class="bg-primary text-sm" title="Auto Layout">
+    <!-- <button (click)="autoLayoutByTargetEnd()" class="bg-primary text-sm" title="Auto Layout">
       <lucide-icon [img]="ShapesIcon"></lucide-icon>Layout
-    </button>
+    </button> -->
 
     <button (click)="saveLocal()" class="bg-primary" title="Save">
       <lucide-icon [img]="SaveIcon"></lucide-icon>Save
@@ -31,6 +31,15 @@
 
     <button (click)="refreshFromSheet()" class="bg-primary" title="Re-layout">
       <lucide-icon [img]="RefreshIcon"></lucide-icon>Refresh
+    </button>
+    <button (click)="enableLineMode()" class="bg-primary" title="Draw Line">
+      <lucide-icon [img]="SlashIcon"></lucide-icon>Line
+    </button>
+    <button (click)="snapHorizontal()" class="bg-primary" title="Draw Line">
+      <lucide-icon [img]="SlashIcon"></lucide-icon>Horizontal
+    </button>
+    <button (click)="addLabel()" class="bg-primary" title="Add Label">
+      <lucide-icon [img]="TypeIcon"></lucide-icon>Label
     </button>
   </div>
 
