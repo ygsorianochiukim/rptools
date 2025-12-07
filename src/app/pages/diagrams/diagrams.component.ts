@@ -160,7 +160,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         {
           selector: 'node[nodeType = "label"]',
           style: {
-            'background-color': 'transparent',
+            'background-color': '#f48fb1',
             'border-width': 0,
             'font-size': 14,
             'text-valign': 'center',
@@ -634,6 +634,18 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   
   normalizeDate(value: any): Date | null {
     if (!value) return null;
+    
+    // Handle string format like "Date(2025,11,26)"
+    if (typeof value === 'string' && value.startsWith('Date(')) {
+      const match = value.match(/Date\((\d+),(\d+),(\d+)\)/);
+      if (match) {
+        const year = parseInt(match[1]);
+        const month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
+        const day = parseInt(match[3]);
+        return new Date(year, month, day);
+      }
+    }
+    
     if (typeof value === 'number') {
       const epoch = new Date(1899, 11, 30);
       return new Date(epoch.getTime() + value * 24 * 60 * 60 * 1000);
@@ -807,22 +819,13 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     // Color all edges: blue for normal nodes, keep original for farthest nodes
     const farthestNodeIds = new Set(farthestNodes.map((n: any) => n.id()));
     
+    // Reset all sheet edges to default black color
     this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
-      const targetId = edge.data('target');
-      const sourceId = edge.data('source');
-      
-      // If the target node is in the farthest column, keep red, otherwise make blue
-      if (farthestNodeIds.has(targetId)) {
-        edge.style({
-          'line-color': 'red',
-          'target-arrow-color': 'red'
-        });
-      } else {
-        edge.style({
-          'line-color': '#64b5f6',
-          'target-arrow-color': '#1976d2'
-        });
-      }
+      edge.style({
+        'line-color': '#333333',
+        'target-arrow-color': '#333333',
+        'width': 2
+      });
     });
 
     // Animate & Fit
@@ -1006,12 +1009,146 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         // Update existing nodes with new data from sheet
         this.updateNodesFromSheet();
         
-        alert('Data refreshed from sheet!');
+        // Calculate and show critical path
+        this.showCriticalPath();
+        
+        alert('Data refreshed and critical path highlighted!');
       })
       .catch(err => {
         console.error(err);
         alert('Failed to refresh sheet data.');
       });
+  }
+  
+  showCriticalPath() {
+    if (!this.cy) return;
+    
+    // First, reset ALL edges to black
+    this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
+      edge.style({
+        'line-color': '#333333',
+        'target-arrow-color': '#333333',
+        'width': 2
+      });
+    });
+    
+    // Find the node(s) with the absolute farthest target end date
+    let farthestDate: Date | null = null;
+    let farthestTimestamp: number | null = null;
+    const farthestNodes: any[] = [];
+    
+    // First pass: find the absolute latest date and debug
+    this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
+      const details = node.data("details") || {};
+      console.log('Node:', node.data('label'));
+      console.log('Details:', details);
+      
+      // Try multiple possible column names
+      const rawEnd = details["Target End"] || 
+                     details["Target end"] || 
+                     details["target end"] ||
+                     details["TargetEnd"] ||
+                     details["target_end"];
+      
+      console.log('Raw end value:', rawEnd);
+      
+      if (rawEnd) {
+        const parsed = this.normalizeDate(rawEnd);
+        console.log('Parsed date:', parsed);
+        
+        if (parsed && !isNaN(parsed.getTime())) {
+          const timestamp = parsed.getTime();
+          if (farthestTimestamp === null || timestamp > farthestTimestamp) {
+            farthestTimestamp = timestamp;
+            farthestDate = parsed;
+          }
+        }
+      }
+    });
+    
+    if (!farthestDate || farthestTimestamp === null) {
+      console.log('No valid dates found');
+      alert('No valid "Target End" dates found in nodes. Please check your column mapping.');
+      return;
+    }
+    
+    // Second pass: collect all nodes with the farthest date
+    this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
+      const details = node.data("details") || {};
+      const rawEnd = details["Target End"] || 
+                     details["Target end"] || 
+                     details["target end"] ||
+                     details["TargetEnd"] ||
+                     details["target_end"];
+      
+      if (rawEnd) {
+        const parsed = this.normalizeDate(rawEnd);
+        
+        if (parsed && !isNaN(parsed.getTime())) {
+          const timestamp = parsed.getTime();
+          if (timestamp === farthestTimestamp) {
+            farthestNodes.push(node);
+          }
+        }
+      }
+    });
+    
+    console.log('Farthest date:', farthestDate);
+    console.log('Farthest timestamp:', farthestTimestamp);
+    console.log('Farthest nodes:', farthestNodes.map((n: any) => n.data('label')));
+    
+    if (farthestNodes.length === 0) {
+      console.log('No farthest nodes found');
+      return;
+    }
+    
+    // Get all nodes in the critical path (working backwards from farthest nodes ONLY)
+    const criticalPathNodes = new Set<string>();
+    const nodesToProcess = [...farthestNodes];
+    
+    while (nodesToProcess.length > 0) {
+      const currentNode = nodesToProcess.pop()!;
+      const nodeId = currentNode.id();
+      
+      if (criticalPathNodes.has(nodeId)) {
+        continue;
+      }
+      
+      criticalPathNodes.add(nodeId);
+      
+      // Find all edges that point TO this node (incoming edges)
+      const incomingEdges = currentNode.incomers('edge[sourceTag = "sheet"]');
+      
+      incomingEdges.forEach((edge: any) => {
+        const sourceNode = edge.source();
+        if (sourceNode && !criticalPathNodes.has(sourceNode.id())) {
+          nodesToProcess.push(sourceNode);
+        }
+      });
+    }
+    
+    console.log('Critical path node count:', criticalPathNodes.size);
+    console.log('Critical path nodes:', Array.from(criticalPathNodes));
+    
+    // Color ONLY edges that are part of the critical path to red
+    let redEdgeCount = 0;
+    this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
+      const targetId = edge.data('target');
+      const sourceId = edge.data('source');
+      
+      // Both source AND target must be in the critical path
+      if (criticalPathNodes.has(targetId) && criticalPathNodes.has(sourceId)) {
+        edge.style({
+          'line-color': 'red',
+          'target-arrow-color': 'red',
+          'width': 3
+        });
+        redEdgeCount++;
+        console.log(`Red edge: ${sourceId} -> ${targetId}`);
+      }
+    });
+    
+    console.log('Total red edges:', redEdgeCount);
   }
   
   updateNodesFromSheet() {

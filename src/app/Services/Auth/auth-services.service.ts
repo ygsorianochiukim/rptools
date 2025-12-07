@@ -7,7 +7,7 @@ import { environment } from '../../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private apiUrl = 'https://park.renaissance.ph/api';
-  private apiUrl1 = `${environment.apiUrl}`;
+  private apiUrl1 = `https://lightcyan-finch-177917.hostingersite.com/api`;
 
   constructor(private http: HttpClient) {}
   token = signal<string | null>(null);
