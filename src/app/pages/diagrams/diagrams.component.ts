@@ -904,8 +904,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   
   parseSheetValue(value: any) {
-    console.log('parseSheetValue input:', value, 'type:', typeof value);
-    
     if (typeof value === 'string' && value.startsWith('Date(')) {
       const match = value.match(/Date\((\d+),(\d+),(\d+)\)/);
       if (match) {
@@ -913,7 +911,6 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         const month = parseInt(match[2]);
         const day = parseInt(match[3]);
         const result = `${month}/${day}/${year}`;
-        console.log('parseSheetValue Date() format result:', result);
         return result;
       }
     }
@@ -925,18 +922,14 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       const day = date.getDate().toString().padStart(2, '0');
       const year = date.getFullYear();
       const result = `${month}/${day}/${year}`;
-      console.log('parseSheetValue number format result:', result);
       return result;
     }
     const result = value?.toString() ?? '';
-    console.log('parseSheetValue default result:', result);
     return result;
   }
   
   generateNodesDynamic() {
     if (!this.cy) return;
-    
-    // Store existing node positions before removing them
     const existingPositions = new Map<string, {x: number, y: number}>();
     this.cy.nodes().filter((n: any) => n.data('sheetNode') === 'yes').forEach((node: any) => {
       existingPositions.set(node.id(), {
@@ -1078,6 +1071,8 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   showCriticalPath() {
     if (!this.cy) return;
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
       edge.style({
         'line-color': '#333333',
@@ -1085,94 +1080,75 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
         'width': 2
       });
     });
-    
-    let farthestDate: Date | null = null;
-    let farthestTimestamp: number | null = null;
-    const farthestNodes: any[] = [];
-    
-    this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
-      const details = node.data("details") || {};
-      const rawEnd = details["Target End"] || 
-                     details["Target end"] || 
-                     details["target end"] ||
-                     details["TargetEnd"] ||
-                     details["target_end"];
-      
-      if (rawEnd) {
-        const parsed = this.normalizeDate(rawEnd);
-        
-        if (parsed && !isNaN(parsed.getTime())) {
-          const timestamp = parsed.getTime();
-          if (farthestTimestamp === null || timestamp > farthestTimestamp) {
-            farthestTimestamp = timestamp;
-            farthestDate = parsed;
-          }
-        }
-      }
-    });
-    
-    if (!farthestDate || farthestTimestamp === null) {
-      alert('No valid "Target End" dates found in nodes. Please check your column mapping.');
-      return;
-    }
-    
-    this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
-      const details = node.data("details") || {};
-      const rawEnd = details["Target End"] || 
-                     details["Target end"] || 
-                     details["target end"] ||
-                     details["TargetEnd"] ||
-                     details["target_end"];
-      
-      if (rawEnd) {
-        const parsed = this.normalizeDate(rawEnd);
-        
-        if (parsed && !isNaN(parsed.getTime())) {
-          const timestamp = parsed.getTime();
-          if (timestamp === farthestTimestamp) {
-            farthestNodes.push(node);
-          }
-        }
-      }
-    });
-    
-    if (farthestNodes.length === 0) {
-      return;
-    }
-    
-    const criticalPathNodes = new Set<string>();
-    const nodesToProcess = [...farthestNodes];
-    
-    while (nodesToProcess.length > 0) {
-      const currentNode = nodesToProcess.pop()!;
-      const nodeId = currentNode.id();
-      
-      if (criticalPathNodes.has(nodeId)) {
-        continue;
-      }
-      
-      criticalPathNodes.add(nodeId);
-      
-      const incomingEdges = currentNode.incomers('edge[sourceTag = "sheet"]');
-      
-      incomingEdges.forEach((edge: any) => {
-        const sourceNode = edge.source();
-        if (sourceNode && !criticalPathNodes.has(sourceNode.id())) {
-          nodesToProcess.push(sourceNode);
-        }
-      });
-    }
-    
     this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
-      const targetId = edge.data('target');
-      const sourceId = edge.data('source');
+      const targetNode = edge.target();
+      const sourceNode = edge.source();
       
-      if (criticalPathNodes.has(targetId) && criticalPathNodes.has(sourceId)) {
+      if (!targetNode || !sourceNode) return;
+      
+      const targetDetails = targetNode.data("details") || {};
+      const sourceDetails = sourceNode.data("details") || {};
+      const targetStatus = (targetDetails["Status"] || 
+                           targetDetails["status"] || 
+                           targetDetails["STATUS"] || 
+                           targetDetails["project_status"] ||
+                           targetDetails["Project Status"] || "").toString().trim();
+      
+      const sourceStatus = (sourceDetails["Status"] || 
+                           sourceDetails["status"] || 
+                           sourceDetails["STATUS"] || 
+                           sourceDetails["project_status"] ||
+                           sourceDetails["Project Status"] || "").toString().trim();
+      const targetEffectiveEnd = targetDetails["Effective Target End"] || 
+                                 targetDetails["effective target end"] ||
+                                 targetDetails["EffectiveTargetEnd"] ||
+                                 targetDetails["effective_target_end"];
+      
+      const targetEnd = targetDetails["Target End"] || 
+                       targetDetails["Target end"] || 
+                       targetDetails["target end"] ||
+                       targetDetails["TargetEnd"] ||
+                       targetDetails["target_end"];
+      const targetDateRaw = targetEffectiveEnd || targetEnd;
+      if (!targetDateRaw) {
+        return;
+      }
+      const targetDate = this.normalizeDate(targetDateRaw);
+      if (!targetDate || isNaN(targetDate.getTime())) {
+        return;
+      }
+      targetDate.setHours(0, 0, 0, 0);
+      const sourceEffectiveEnd = sourceDetails["Effective Target End"] || 
+                                 sourceDetails["effective target end"] ||
+                                 sourceDetails["EffectiveTargetEnd"] ||
+                                 sourceDetails["effective_target_end"];
+      
+      const sourceEnd = sourceDetails["Target End"] || 
+                       sourceDetails["Target end"] || 
+                       sourceDetails["target end"] ||
+                       sourceDetails["TargetEnd"] ||
+                       sourceDetails["target_end"];
+      const sourceDateRaw = sourceEffectiveEnd || sourceEnd;
+      if (!sourceDateRaw) {
+        return;
+      }
+      const sourceDate = this.normalizeDate(sourceDateRaw);
+      if (!sourceDate || isNaN(sourceDate.getTime())) {
+        return;
+      }
+      sourceDate.setHours(0, 0, 0, 0);
+      const sourceIsPastDeadline = sourceDate.getTime() < today.getTime();
+      const targetIsPastDeadline = targetDate.getTime() < today.getTime();
+      const sourceIsClosed = sourceStatus.toLowerCase() === "closed";
+      const targetIsClosed = targetStatus.toLowerCase() === "closed";
+      const shouldBeRed = (sourceIsPastDeadline && !sourceIsClosed) || (targetIsPastDeadline && !targetIsClosed);
+      if (shouldBeRed) {
         edge.style({
           'line-color': 'red',
           'target-arrow-color': 'red',
           'width': 3
         });
+      } else {
       }
     });
   }
@@ -1212,7 +1188,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       
       let nodeColor = "#E3E3E3";
-      const statusValue = details["Status"] ?? details["status"] ?? details["STATUS"] ?? details["project_status"];
+      const statusValue = details["Status"] ?? details["status"] ?? details["STATUS"] ?? details["project_status"] ?? details["Project Status"];
       nodeColor = this.getStatusColor(statusValue);
       
       updatedDataMap.set(nodeId, {
@@ -1282,7 +1258,7 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
     
     this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
       const details = node.data('details') || {};
-      const statusValue = details["Status"] ?? details["status"] ?? details["STATUS"] ?? details["project_status"];
+      const statusValue = details["Status"] ?? details["status"] ?? details["STATUS"] ?? details["project_status"]?? details["Project Status"];
       node.style('background-color', this.getStatusColor(statusValue));
     });
   }
@@ -1468,5 +1444,31 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
+  }
+  autoLayout() {
+    if (!this.cy) return;
+    
+    const sheetNodes = this.cy.nodes('[sheetNode = "yes"]');
+    
+    if (sheetNodes.length === 0) {
+      alert('No sheet nodes to layout. Please import data from Google Sheets first.');
+      return;
+    }
+    
+    try {
+      this.cy.layout({
+        name: 'dagre',
+        rankDir: 'TB',
+        nodeSep: 80,
+        rankSep: 120,
+        padding: 50,
+        animate: true,
+        animationDuration: 500,
+        fit: true
+      }).run();
+    } catch (err) {
+      console.error('Auto layout error:', err);
+      alert('Failed to apply auto layout');
+    }
   }
 }
