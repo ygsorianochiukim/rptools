@@ -1066,86 +1066,105 @@ export class DiagramComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   
   showCriticalPath() {
-  if (!this.cy) return;
-  this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
-    edge.style({
-      'line-color': '#333333',
-      'target-arrow-color': '#333333',
-      'width': 2
+    if (!this.cy) return;
+    this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
+      edge.style({
+        'line-color': '#333333',
+        'target-arrow-color': '#333333',
+        'width': 2
+      });
     });
-  });
-  let farthestTimestamp: number | null = null;
-  let farthestNodeId: string | null = null;
-  
-  this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
-    const incomingEdges = node.incomers('edge[sourceTag = "sheet"]');
-    if (incomingEdges.length === 0) {
-      return;
-    }
+    let farthestTimestamp: number | null = null;
+    let farthestNodeId: string | null = null;
     
-    const details = node.data("details") || {};
-    const rawEnd = details["Effective Target End"] || 
-                   details["Effective Target end"] || 
-                   details["effective target end"] ||
-                   details["EffectiveTargetEnd"] ||
-                   details["effective_target_end"];
-    
-    if (rawEnd) {
-      const parsed = this.normalizeDate(rawEnd);
+    this.cy.nodes('[sheetNode = "yes"]').forEach((node: any) => {
+      const incomingEdges = node.incomers('edge[sourceTag = "sheet"]');
+      if (incomingEdges.length === 0) {
+        return;
+      }
       
-      if (parsed && !isNaN(parsed.getTime())) {
-        const timestamp = parsed.getTime();
-        if (farthestTimestamp === null || timestamp > farthestTimestamp) {
-          farthestTimestamp = timestamp;
-          farthestNodeId = node.id();
+      const details = node.data("details") || {};
+      const rawEnd = details["Effective Target End"] || 
+                    details["Effective Target end"] || 
+                    details["effective target end"] ||
+                    details["EffectiveTargetEnd"] ||
+                    details["effective_target_end"];
+      
+      if (rawEnd) {
+        const parsed = this.normalizeDate(rawEnd);
+        
+        if (parsed && !isNaN(parsed.getTime())) {
+          const timestamp = parsed.getTime();
+          if (farthestTimestamp === null || timestamp > farthestTimestamp) {
+            farthestTimestamp = timestamp;
+            farthestNodeId = node.id();
+          }
         }
       }
+    });
+    
+    if (!farthestNodeId || farthestTimestamp === null) {
+      return;
     }
-  });
-  
-  if (!farthestNodeId || farthestTimestamp === null) {
-    // alert('No valid "Target End" dates found in nodes with dependencies. Please check your data.');
-    return;
-  }
-  
-  // Trace back through dependencies from the farthest node
-  const criticalPathNodes = new Set<string>();
-  const nodesToProcess: string[] = [farthestNodeId];
-  
-  while (nodesToProcess.length > 0) {
-    const currentNodeId = nodesToProcess.pop()!;
+    const criticalPathEdges = new Set<string>();
+    const nodesToProcess: string[] = [farthestNodeId];
+    const processedNodes = new Set<string>();
     
-    if (criticalPathNodes.has(currentNodeId)) {
-      continue;
+    while (nodesToProcess.length > 0) {
+      const currentNodeId = nodesToProcess.pop()!;
+      
+      if (processedNodes.has(currentNodeId)) {
+        continue;
+      }
+      processedNodes.add(currentNodeId);
+      
+      const currentNode = this.cy.$id(currentNodeId);
+      const incomingEdges = currentNode.incomers('edge[sourceTag = "sheet"]');
+      
+      if (incomingEdges.length === 0) {
+        continue;
+      }
+      let maxTimestamp: number | null = null;
+      let maxSourceNode: any = null;
+      let maxEdge: any = null;
+      
+      incomingEdges.forEach((edge: any) => {
+        const sourceNode = edge.source();
+        const details = sourceNode.data("details") || {};
+        const rawEnd = details["Effective Target End"] || 
+                      details["Effective Target end"] || 
+                      details["effective target end"] ||
+                      details["EffectiveTargetEnd"] ||
+                      details["effective_target_end"];
+        
+        if (rawEnd) {
+          const parsed = this.normalizeDate(rawEnd);
+          if (parsed && !isNaN(parsed.getTime())) {
+            const timestamp = parsed.getTime();
+            if (maxTimestamp === null || timestamp > maxTimestamp) {
+              maxTimestamp = timestamp;
+              maxSourceNode = sourceNode;
+              maxEdge = edge;
+            }
+          }
+        }
+      });
+      if (maxEdge && maxSourceNode) {
+        criticalPathEdges.add(maxEdge.id());
+        nodesToProcess.push(maxSourceNode.id());
+      }
     }
-    
-    criticalPathNodes.add(currentNodeId);
-    
-    const currentNode = this.cy.$id(currentNodeId);
-    const incomingEdges = currentNode.incomers('edge[sourceTag = "sheet"]');
-    
-    incomingEdges.forEach((edge: any) => {
-      const sourceNode = edge.source();
-      if (sourceNode && !criticalPathNodes.has(sourceNode.id())) {
-        nodesToProcess.push(sourceNode.id());
+    criticalPathEdges.forEach((edgeId: string) => {
+      const edge = this.cy.$id(edgeId);
+      if (edge.length > 0) {
+        edge.style({
+          'line-color': 'red',
+          'target-arrow-color': 'red',
+          'width': 3
+        });
       }
     });
   }
-  
-  // Highlight only the edges that connect nodes in the critical path
-  this.cy.edges('[sourceTag = "sheet"]').forEach((edge: any) => {
-    const targetId = edge.data('target');
-    const sourceId = edge.data('source');
-    
-    if (criticalPathNodes.has(targetId) && criticalPathNodes.has(sourceId)) {
-      edge.style({
-        'line-color': 'red',
-        'target-arrow-color': 'red',
-        'width': 3
-      });
-    }
-  });
-}
   
   updateNodesFromSheet() {
     if (!this.cy || !this.rows.length) return;
